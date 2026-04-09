@@ -4,7 +4,7 @@
 \section{Introdução}
 \label{sec:impl-intro}
 
-Este capítulo descreve os detalhes técnicos da implementação dos principais módulos do sistema FinTwin. Para cada módulo, são apresentadas as decisões de implementação, os excertos de código mais relevantes e os desafios encontrados.
+Este capítulo descreve os detalhes técnicos da implementação dos principais módulos do sistema Gold Lock. Para cada módulo, são apresentadas as decisões de implementação, os excertos de código mais relevantes e os desafios encontrados.
 
 % TODO: Preencher com os detalhes reais da implementação à medida que o desenvolvimento avança
 
@@ -30,7 +30,7 @@ O desenvolvimento utiliza Docker e Docker Compose para garantir um ambiente repr
 \begin{itemize}
     \item \textbf{frontend:} Container Node.js com React 18 + TypeScript, hot-reload via Vite
     \item \textbf{backend:} Container Node.js com Express + TypeScript, restart automático com nodemon
-    \item \textbf{ml-service:} Container Python com Flask + scikit-learn para servir o modelo de categorização
+    \item \textbf{ml-service:} Container Python com Flask + scikit-learn para servir o modelo de categorização e o pipeline de IA de otimização fiscal
     \item \textbf{postgres:} Container PostgreSQL 16 com volume persistente para dados
     \item \textbf{redis:} Container Redis para cache e gestão de sessões
 \end{itemize}
@@ -50,7 +50,7 @@ services:
     build: ./backend
     ports: ["4000:4000"]
     environment:
-      DATABASE_URL: postgres://user:pass@postgres:5432/fintwin
+      DATABASE_URL: postgres://user:pass@postgres:5432/goldlock
       REDIS_URL: redis://redis:6379
     depends_on: [postgres, redis]
 
@@ -63,7 +63,7 @@ services:
     image: postgres:16-alpine
     volumes: ["pgdata:/var/lib/postgresql/data"]
     environment:
-      POSTGRES_DB: fintwin
+      POSTGRES_DB: goldlock
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
 
@@ -78,7 +78,7 @@ volumes:
 A estrutura do projeto segue uma organização por módulos:
 
 \begin{lstlisting}[caption={Estrutura de diretórios do projeto.},label={lst:structure}]
-fintwin/
+goldlock/
   docker-compose.yml # Orquestracao de todos os servicos
   frontend/          # React + TypeScript
     Dockerfile
@@ -98,9 +98,15 @@ fintwin/
       services/      # Integracao Salt Edge, ML
   ml-service/        # Python (scikit-learn)
     Dockerfile
-    models/          # Modelos treinados
-    training/        # Scripts de treino
-    api/             # API Flask para servir modelos
+    app/
+      categorizer.py       # Pipeline TF-IDF + RF (categorização)
+      deduction_classifier.py  # Classificador ML de despesas dedutíveis
+      irs_engine.py        # Motor de regras CIRS 2025 (determinístico)
+      fiscal_optimizer.py  # Algoritmo de otimização de cenários fiscais
+    models/          # Modelos treinados (.pkl)
+    data/
+      cirs_2025.json       # Escalões e limites dedução (fonte: DR/OE 2025)
+      deduction_training_data.py  # Dataset derivado do CIRS para treino
   database/
     migrations/      # Migrations SQL
     seeds/           # Dados de teste
@@ -217,17 +223,85 @@ O dashboard foi implementado em React 18 com TypeScript, utilizando TailwindCSS 
 \section{Módulo Simulador IRS}
 \label{sec:impl-irs}
 
-O simulador de \ac{IRS} implementa as regras fiscais portuguesas vigentes para o ano fiscal de 2025/2026. O motor de cálculo é determinístico (baseado em regras), sem utilização de \ac{IA} generativa, garantindo a precisão dos resultados.
+O simulador de \ac{IRS} implementa as regras fiscais portuguesas vigentes para o ano fiscal de 2025. O motor de cálculo é determinístico (baseado em regras do \ac{CIRS}), sem utilização de \ac{IA} generativa, garantindo a precisão e auditabilidade dos resultados.
 
 As funcionalidades implementadas incluem:
 \begin{itemize}
     \item Cálculo de \ac{IRS} para rendimentos de Categoria A (trabalho dependente)
-    \item Aplicação dos escalões de \ac{IRS} em vigor
+    \item Aplicação dos escalões de \ac{IRS} em vigor (OE 2025, Lei n.º~24-D/2024)
     \item Cálculo de deduções à coleta (saúde, educação, habitação, encargos gerais familiares)
+    \item Integração das contribuições para a Segurança Social como deduções ao rendimento (art.º 25.º \ac{CIRS})
     \item Comparação entre tributação conjunta e separada (casais)
 \end{itemize}
 
-% TODO: Adicionar tabela de escalões e código do simulador
+A Tabela~\ref{tab:escaloes-irs-2025} apresenta os escalões de \ac{IRS} para 2025, conforme o Orçamento do Estado (Lei n.º~24-D/2024).
+
+\begin{table}[H]
+\centering
+\caption{Escalões de IRS 2025 (Categoria A --- trabalho dependente).}
+\label{tab:escaloes-irs-2025}
+\small
+\begin{tabularx}{\textwidth}{r r r X}
+\toprule
+\textbf{Escalão} & \textbf{Rendimento coletável (€)} & \textbf{Taxa} & \textbf{Parcela a abater (€)} \\
+\midrule
+1.º & Até 7\,703 & 13,0\% & --- \\
+2.º & De 7\,703 a 11\,623 & 18,0\% & 385,15 \\
+3.º & De 11\,623 a 16\,472 & 23,0\% & 966,30 \\
+4.º & De 16\,472 a 21\,321 & 26,0\% & 1\,460,46 \\
+5.º & De 21\,321 a 27\,146 & 32,75\% & 2\,899,48 \\
+6.º & De 27\,146 a 39\,791 & 37,0\% & 4\,052,68 \\
+7.º & De 39\,791 a 51\,997 & 43,5\% & 6\,638,71 \\
+8.º & De 51\,997 a 81\,199 & 45,0\% & 7\,418,22 \\
+9.º & Superior a 81\,199 & 48,0\% & 9\,854,19 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% TODO: Adicionar código do motor de regras quando implementado (Sprint 9)
+
+
+\section{Módulo de IA de Otimização Fiscal}
+\label{sec:impl-fiscal-ia}
+
+O módulo de \ac{IA} de otimização fiscal constitui o contributo técnico mais diferenciador do projeto. É implementado no serviço Python existente (\texttt{ml-service}), dividido em três componentes funcionais que operam em sequência.
+
+\subsection{Classificador de Despesas Dedutíveis}
+\label{sec:impl-deduction-classifier}
+
+O classificador é um modelo Random Forest treinado com dados sintéticos derivados das regras do \ac{CIRS} 2025. O conjunto de dados de treino (\texttt{data/deduction\_training\_data.py}) é gerado programaticamente a partir do mapeamento entre descrições de transações bancárias portuguesas e as categorias de dedução previstas nos artigos 78.º-A a 78.º-F do \ac{CIRS}. Este processo garante que as \textit{labels} de treino são fidedignas e rastreáveis a fontes legais oficiais.
+
+As classes de saída do classificador são:
+\begin{itemize}
+    \item \texttt{saude\_dedutivel} --- farmácias, hospitais, clínicas, ópticas (art.º 78.º-C \ac{CIRS}: 15\% das despesas, limite 1\,000\,€)
+    \item \texttt{educacao\_dedutivel} --- propinas, material escolar, explicações (art.º 78.º-D \ac{CIRS}: 30\% das despesas, limite 800\,€)
+    \item \texttt{habitacao\_dedutivel} --- rendas, juros de habitação (art.º 78.º-E \ac{CIRS}: 15\% dos encargos, limite 296\,€)
+    \item \texttt{encargos\_gerais\_dedutivel} --- despesas gerais familiares (art.º 78.º-B \ac{CIRS}: 35\% das despesas, limite 250\,€)
+    \item \texttt{nao\_dedutivel} --- supermercado, lazer, telecomunicações, etc.
+\end{itemize}
+
+\subsection{Motor de Regras Fiscais CIRS 2025}
+\label{sec:impl-irs-engine}
+
+O motor de regras (\texttt{irs\_engine.py}) implementa o fluxo completo de cálculo do \ac{IRS} em Python puro, sem dependências de bibliotecas de otimização externas. Os dados das regras fiscais são armazenados em \texttt{data/cirs\_2025.json}, permitindo a atualização anual sem alterações ao código. O fluxo de cálculo é o seguinte:
+
+\begin{enumerate}
+    \item Rendimento bruto Categoria A (input do utilizador via \texttt{FiscalProfile})
+    \item Dedução das contribuições para a Segurança Social: min(rendimento bruto $\times$ 11\%, 4\,104\,€)~--- art.º 25.º \ac{CIRS}
+    \item Dedução específica de Categoria A: max(4\,104\,€, contribuições SS efectivas)
+    \item Rendimento coletável = rendimento bruto $-$ deduções ao rendimento
+    \item Aplicação dos escalões do OE 2025 (Tabela~\ref{tab:escaloes-irs-2025})
+    \item Coleta bruta = rendimento coletável $\times$ taxa do escalão $-$ parcela a abater
+    \item Deduções à coleta: saúde + educação + habitação + encargos gerais (limites \ac{CIRS})
+    \item Imposto final = coleta bruta $-$ deduções à coleta $-$ retenções na fonte
+\end{enumerate}
+
+\subsection{Otimizador Fiscal}
+\label{sec:impl-fiscal-optimizer}
+
+O otimizador (\texttt{fiscal\_optimizer.py}) gera e compara múltiplos cenários de declaração possíveis, aplicando um algoritmo \textit{greedy} com verificação exaustiva dos cenários de tributação conjunta e separada. Para cada cenário, invoca o motor de regras e recolhe o imposto final resultante. O output inclui: (1)~o cenário mais vantajoso com a poupança fiscal estimada face ao cenário base; (2)~lista de alertas sobre deduções não utilizadas ou próximas do limite legal; (3)~estimativa do impacto de despesas futuras no \ac{IRS} do ano seguinte (RF41).
+
+% TODO: Adicionar excertos de código quando implementado (Sprint 9)
 
 
 \section{Conclusões}

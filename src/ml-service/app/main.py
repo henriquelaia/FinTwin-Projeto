@@ -1,5 +1,5 @@
 """
-FinTwin ML Service
+Gold Lock ML Service
 ==================
 API Flask para categorização automática de transações financeiras
 usando TF-IDF + Random Forest.
@@ -23,7 +23,7 @@ def health():
     """Health check endpoint."""
     return jsonify({
         'status': 'ok',
-        'service': 'fintwin-ml-service',
+        'service': 'goldlock-ml-service',
         'model_loaded': categorizer.is_loaded(),
     })
 

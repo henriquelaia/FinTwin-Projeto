@@ -64,7 +64,25 @@ Para o contexto deste projeto, optou-se pela utilização da biblioteca scikit-l
 
 \subsection{IA Generativa em Finanças}
 
-A \ac{IA} generativa, nomeadamente modelos de linguagem como o GPT-4o da OpenAI, tem encontrado aplicações no setor financeiro para geração de insights personalizados, chatbots de aconselhamento financeiro e análise de sentimento de mercado~\cite{openai2024}. Neste projeto, a \ac{IA} generativa é utilizada complementarmente ao modelo de \ac{ML} para fornecer sugestões conversacionais e personalizadas ao utilizador.
+A \ac{IA} generativa, nomeadamente modelos de linguagem como o GPT-4o da OpenAI, tem encontrado aplicações no setor financeiro para geração de insights personalizados, chatbots de aconselhamento financeiro e análise de sentimento de mercado~\cite{openai2024}. Contudo, a aplicação de \ac{LLM}s em domínios com requisitos de precisão numérica e legal elevada --- como o cálculo fiscal --- levanta questões críticas de fiabilidade, auditabilidade e propensão para erros factuais (\textit{hallucinations})~\cite{llm-reliability2024}. Por este motivo, o presente projeto opta por uma abordagem alternativa para o módulo fiscal, descrita na secção seguinte.
+
+
+\subsection{IA em Otimização Fiscal}
+\label{sec:ea-fiscal-ia}
+
+A aplicação de \ac{IA} à otimização fiscal constitui uma área de investigação crescente no domínio da fintech. Ao contrário da categorização de transações --- onde uma classificação aproximada é funcionalmente aceitável --- o cálculo fiscal exige precisão absoluta e rastreabilidade completa, uma vez que os resultados têm implicações legais e financeiras diretas para o utilizador~\cite{tax-ai2023}.
+
+As abordagens existentes na literatura dividem-se em três paradigmas principais:
+
+\begin{itemize}
+    \item \textbf{Sistemas baseados em regras (\textit{expert systems}):} Codificam diretamente as disposições do código fiscal como lógica determinística. Garantem precisão total e auditabilidade, mas requerem atualização manual a cada alteração legislativa.
+    \item \textbf{Modelos de \ac{ML} para classificação fiscal:} Utilizam algoritmos supervisionados para classificar transações segundo a sua dedutibilidade (saúde, educação, habitação), com base em padrões de texto e montante. São especialmente eficazes quando treinados com dados derivados diretamente das regras do código fiscal.
+    \item \textbf{Algoritmos de otimização:} Dado um conjunto de rendimentos e deduções identificadas, aplicam técnicas de otimização combinatória (\textit{greedy}, \textit{branch-and-bound}) para determinar o cenário de declaração mais vantajoso entre as alternativas possíveis (e.g.\ tributação individual vs.\ conjunta).
+\end{itemize}
+
+A literatura académica recente demonstra que a abordagem híbrida --- \ac{ML} para identificação de despesas dedutíveis, motor determinístico para cálculo fiscal e algoritmo de otimização para comparação de cenários --- oferece o melhor equilíbrio entre adaptabilidade e precisão em sistemas de aconselhamento fiscal automatizado~\cite{hybrid-tax-ai2024}. Esta é a abordagem adotada no presente projeto, tendo como fontes de dados fidedignas e oficiais o Código do IRS português (\ac{CIRS} 2025) e o Orçamento do Estado 2025 (Lei n.º~24-D/2024, publicada no Diário da República).
+
+A decisão de não recorrer a \ac{LLM}s externos para o módulo de otimização fiscal é intencional e assenta em três razões fundamentais: (1)~\textbf{falta de auditabilidade} --- os modelos generativos não garantem que os cálculos respeitem as regras exatas do \ac{CIRS}; (2)~\textbf{imprecisão numérica} --- \ac{LLM}s são reconhecidamente propensos a erros em operações aritméticas complexas; (3)~\textbf{dependência externa} --- a fiabilidade de uma funcionalidade crítica não deve depender da disponibilidade de \ac{API}s de terceiros. A IA desenvolvida é totalmente própria, treinada com dados oficiais e executada localmente na infraestrutura do projeto.
 
 
 \section{Análise Comparativa de Concorrentes}
@@ -110,12 +128,14 @@ A Tabela~\ref{tab:comparativa} sintetiza a análise comparativa das principais p
 \small
 \begin{tabularx}{\textwidth}{l c c c c c c}
 \toprule
-\textbf{Característica} & \textbf{Copilot} & \textbf{Monarch} & \textbf{Origin} & \textbf{Revolut} & \textbf{Moey!} & \textbf{FinTwin} \\
+\textbf{Característica} & \textbf{Copilot} & \textbf{Monarch} & \textbf{Origin} & \textbf{Revolut} & \textbf{Moey!} & \textbf{Gold Lock} \\
 \midrule
 Multi-plataforma         & --  & Sim & Sim & Sim & Sim & Sim \\
 IA/ML                    & Sim & Sim & Sim & --  & --  & Sim \\
 Open Banking PT          & --  & --  & --  & Sim & --  & Sim \\
 Simulador IRS            & --  & --  & Parcial & -- & -- & Sim \\
+IA Fiscal Própria        & --  & --  & --  & --  & --  & \textbf{Sim} \\
+Integração Seg. Social   & --  & --  & --  & --  & --  & \textbf{Sim} \\
 Casais/Família           & --  & Sim & Sim & --  & --  & Futuro \\
 Categorias PT            & --  & --  & --  & --  & Básico & Sim \\
 Design Liquid Glass      & --  & --  & --  & --  & --  & Sim \\
@@ -132,6 +152,7 @@ A análise realizada permitiu identificar as seguintes lacunas críticas no merc
 
 \begin{enumerate}
     \item \textbf{Integração com o sistema fiscal português:} Nenhuma plataforma oferece simulação de \ac{IRS} ou integração com a \ac{AT}/Portal das Finanças.
+    \item \textbf{IA fiscal própria e auditável:} Nenhum concorrente oferece um sistema de \ac{IA} desenvolvido internamente para otimização de \ac{IRS}, que cruze transações bancárias com dados da Segurança Social e as regras do \ac{CIRS}, sem depender de \ac{LLM}s externos.
     \item \textbf{Categorização adaptada ao mercado português:} As categorias de gastos não contemplam especificidades portuguesas (portagens, CTT, supermercados nacionais).
     \item \textbf{Open Banking otimizado para Portugal:} Nenhuma plataforma é nativamente otimizada para a rede \ac{SIBS}/Multibanco.
     \item \textbf{Design Liquid Glass em fintech:} Nenhum concorrente adota o paradigma de design Liquid Glass.
@@ -143,4 +164,4 @@ Estas lacunas representam a oportunidade que o presente projeto se propõe explo
 \section{Conclusões}
 \label{sec:ea-conclusoes}
 
-O levantamento do estado da arte confirmou a viabilidade técnica e a relevância do projeto proposto. As tecnologias necessárias --- Open Banking via \ac{PSD2}, \ac{ML} para categorização de transações e frameworks modernos de desenvolvimento web --- estão maduras e acessíveis. Simultaneamente, a análise comparativa revelou uma clara lacuna no mercado para uma plataforma de \ac{PFM} focada no mercado português, que combine funcionalidades avançadas de \ac{IA} com adaptação profunda ao contexto fiscal e bancário nacional.
+O levantamento do estado da arte confirmou a viabilidade técnica e a relevância do projeto proposto. As tecnologias necessárias --- Open Banking via \ac{PSD2}, \ac{ML} para categorização e classificação fiscal de transações, e frameworks modernos de desenvolvimento web --- estão maduras e acessíveis. Simultaneamente, a análise comparativa revelou uma clara lacuna no mercado para uma plataforma de \ac{PFM} focada no mercado português, que combine funcionalidades avançadas de \ac{IA} com adaptação profunda ao contexto fiscal e bancário nacional. Em particular, a inexistência de qualquer solução que ofereça \ac{IA} de otimização fiscal própria --- baseada no \ac{CIRS} e integrada com dados da Segurança Social --- representa a oportunidade diferenciadora central deste projeto.

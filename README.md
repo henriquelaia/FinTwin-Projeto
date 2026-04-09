@@ -1,4 +1,4 @@
-# FinTwin — Plataforma de Gestão Financeira Pessoal
+# Gold Lock — Plataforma de Gestão Financeira Pessoal
 
 Plataforma web de gestão financeira pessoal com integração Open Banking (PSD2), categorização automática de transações com Machine Learning e simulação fiscal de IRS, especificamente desenhada para o mercado português.
 
@@ -34,8 +34,8 @@ Orientador: Professor Doutor Nuno Pombo
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/henrique-laia/fintwin.git
-cd fintwin
+git clone https://github.com/henrique-laia/goldlock.git
+cd goldlock
 
 # 2. Configurar variáveis de ambiente
 cp .env.example .env
@@ -66,7 +66,7 @@ cd src/ml-service && pip install -r requirements.txt && python -m flask run
 ## Estrutura do Projeto
 
 ```
-FinTwin-Projeto/
+Gold Lock-Projeto/
 ├── docker-compose.yml          # Orquestração dos 5 containers
 ├── .env.example                # Template de variáveis de ambiente
 ├── src/

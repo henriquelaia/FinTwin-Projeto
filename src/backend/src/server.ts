@@ -34,7 +34,7 @@ app.use(rateLimiter);
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'fintwin-backend',
+    service: 'goldlock-backend',
     timestamp: new Date().toISOString(),
   });
 });
@@ -52,7 +52,7 @@ app.use(errorHandler);
 
 // ── Start Server ──
 app.listen(PORT, () => {
-  console.log(`🚀 FinTwin Backend running on http://localhost:${PORT}`);
+  console.log(`🚀 Gold Lock Backend running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
 });
 

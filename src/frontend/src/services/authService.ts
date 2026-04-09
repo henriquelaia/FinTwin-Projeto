@@ -1,7 +1,7 @@
 import { api } from './api';
 
-const ACCESS_TOKEN_KEY  = 'fintwin_access_token';
-const REFRESH_TOKEN_KEY = 'fintwin_refresh_token';
+const ACCESS_TOKEN_KEY  = 'goldlock_access_token';
+const REFRESH_TOKEN_KEY = 'goldlock_refresh_token';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 

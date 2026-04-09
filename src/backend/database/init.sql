@@ -1,4 +1,4 @@
--- FinTwin — Schema Inicial da Base de Dados
+-- Gold Lock — Schema Inicial da Base de Dados
 -- PostgreSQL 16
 
 -- Extensões

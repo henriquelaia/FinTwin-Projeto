@@ -44,7 +44,7 @@ export function LoginPage() {
 
           {/* Logo e título */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white">FinTwin</h1>
+            <h1 className="text-4xl font-bold text-white">Gold Lock</h1>
             <p className="text-slate-400 mt-1 text-sm">Gestão Financeira Pessoal</p>
           </div>
 

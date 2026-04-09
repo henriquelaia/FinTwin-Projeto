@@ -19,7 +19,7 @@ Os principais contributos deste trabalho incluem:
 
     \item \textbf{Categorização inteligente:} O modelo de \ac{ML} desenvolvido com scikit-learn demonstrou a capacidade de categorizar transações bancárias portuguesas com precisão adequada para utilização prática.
 
-    \item \textbf{Simulador de IRS:} Foi implementado um simulador fiscal determinístico que calcula o \ac{IRS} com base nas regras fiscais portuguesas, cobrindo os cenários mais comuns.
+    \item \textbf{Simulador de IRS e IA de Otimização Fiscal:} Foi implementado um sistema de \ac{IA} próprio para otimização fiscal, composto por três camadas: um classificador de despesas dedutíveis treinado com dados derivados do \ac{CIRS} 2025, um motor de regras determinístico baseado na legislação fiscal portuguesa vigente, e um algoritmo de otimização que compara cenários de declaração e identifica oportunidades de poupança fiscal. A integração com dados da Segurança Social permite personalizar o cálculo ao perfil real do utilizador. Todo o sistema foi desenvolvido sem dependência de \ac{LLM}s externos, garantindo precisão, auditabilidade e independência de serviços de terceiros.
 
     \item \textbf{Design Liquid Glass:} A interface do sistema adota um paradigma de design inovador no setor fintech, priorizando a usabilidade e acessibilidade.
 \end{enumerate}
@@ -47,5 +47,9 @@ Com base nos resultados obtidos e nas limitações identificadas, são sugeridas
 
     \item \textbf{Expansão europeia:} Adaptação da plataforma para outros mercados europeus, começando por Espanha, mantendo a abordagem de localização profunda.
 
-    \item \textbf{Melhoria do modelo de ML:} Evolução do modelo de categorização para utilizar técnicas de Deep Learning (transformadores) e aprendizagem federada, preservando a privacidade dos dados dos utilizadores.
+    \item \textbf{Melhoria dos modelos de ML:} Evolução do modelo de categorização e do classificador de despesas dedutíveis para utilizar técnicas de Deep Learning (transformadores) e aprendizagem federada, preservando a privacidade dos dados dos utilizadores.
+
+    \item \textbf{Integração automática com o Portal das Finanças:} Implementação de leitura de QR codes \ac{ATCUD} em faturas portuguesas para categorização automática de despesas e pré-preenchimento das deduções no simulador de \ac{IRS}, reduzindo a introdução manual de dados pelo utilizador.
+
+    \item \textbf{Expansão para Categoria B:} Extensão do motor de regras fiscais para suportar rendimentos de Categoria B (trabalho independente/recibos verdes), incluindo os regimes simplificado e de contabilidade organizada, que representam uma parcela crescente da população ativa portuguesa.
 \end{enumerate}

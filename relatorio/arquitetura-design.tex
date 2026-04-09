@@ -4,7 +4,7 @@
 \section{Introdução}
 \label{sec:arq-intro}
 
-Este capítulo descreve as decisões arquiteturais e de design tomadas para o desenvolvimento da plataforma FinTwin. São apresentados a arquitetura geral do sistema, o diagrama de componentes, o modelo de dados, o diagrama de classes e as decisões relativas ao design da interface.
+Este capítulo descreve as decisões arquiteturais e de design tomadas para o desenvolvimento da plataforma Gold Lock. São apresentados a arquitetura geral do sistema, o diagrama de componentes, o modelo de dados, o diagrama de classes e as decisões relativas ao design da interface.
 
 
 \section{Visão Geral da Arquitetura}
@@ -27,7 +27,7 @@ A Tabela~\ref{tab:stack} apresenta as tecnologias selecionadas para cada camada 
 
 \begin{table}[H]
 \centering
-\caption{Stack tecnológica do sistema FinTwin.}
+\caption{Stack tecnológica do sistema Gold Lock.}
 \label{tab:stack}
 \small
 \begin{tabularx}{\textwidth}{l l X}
@@ -39,7 +39,7 @@ Animações & Framer Motion & Necessário para efeitos Liquid Glass performantes
 Backend & Node.js + Express + TypeScript & Stack unificada JS/TS, vasto ecossistema fintech \\
 Base de Dados & PostgreSQL & Robusto, relacional, ideal para dados financeiros \\
 Cache & Redis & Sessões, rate limiting, cache de dados Open Banking \\
-IA/ML & Python (scikit-learn) + OpenAI \ac{API} & Classificação + sugestões conversacionais \\
+IA/ML & Python (scikit-learn) & Classificação de transações e otimização fiscal própria, desenvolvida sem dependência de serviços externos \\
 Open Banking & Salt Edge \ac{API} & Cobertura PT, sandbox gratuita, boa documentação \\
 Autenticação & Supabase Auth & \ac{OAuth}2, \ac{2FA}, tier gratuito generoso \\
 Containerização & Docker + Docker Compose & Ambiente reproduzível, isolamento de serviços, parity dev/prod \\
@@ -58,7 +58,7 @@ O modelo de dados foi desenhado em PostgreSQL, priorizando a integridade referen
 \begin{figure}[H]
 \centering
 \input{diagramas/modelo-er}
-\caption{Diagrama Entidade-Relacionamento do sistema FinTwin.}
+\caption{Diagrama Entidade-Relacionamento do sistema Gold Lock.}
 \label{fig:modelo-er}
 \end{figure}
 
@@ -72,6 +72,8 @@ As principais entidades do modelo são:
     \item \textbf{Budget:} Armazena os orçamentos mensais definidos pelo utilizador por categoria.
     \item \textbf{SavingsGoal:} Representa as metas de poupança com valor alvo, prazo e progresso.
     \item \textbf{IRSSimulation:} Guarda os parâmetros e resultados das simulações de \ac{IRS}.
+    \item \textbf{FiscalProfile:} Armazena os dados fiscais do utilizador introduzidos manualmente: rendimento bruto anual, contribuições para a Segurança Social, estado civil e número de dependentes. Estes dados são necessários para o cálculo personalizado do \ac{IRS} estimado.
+    \item \textbf{DeductionAlert:} Regista os alertas gerados pelo sistema relativos a deduções identificadas nas transações (despesas dedutíveis detetadas), limites legais próximos e recomendações de otimização fiscal.
 \end{itemize}
 
 
@@ -83,7 +85,7 @@ A Figura~\ref{fig:diagrama-classes} apresenta o diagrama de classes simplificado
 \begin{figure}[H]
 \centering
 \input{diagramas/classes}
-\caption{Diagrama de classes do sistema FinTwin.}
+\caption{Diagrama de classes do sistema Gold Lock.}
 \label{fig:diagrama-classes}
 \end{figure}
 
@@ -116,7 +118,29 @@ O design da interface segue o paradigma Liquid Glass, inspirado nas guidelines d
 % TODO: Adicionar screenshots/mockups do Figma quando disponíveis
 
 
+\section{Pipeline de IA de Otimização Fiscal}
+\label{sec:arq-fiscal-ia}
+
+O módulo de \ac{IA} de otimização fiscal é implementado como uma extensão do serviço \texttt{ml-service} existente, reutilizando a infraestrutura Python + Flask já disponível. Não é criado um container adicional --- toda a lógica corre no mesmo serviço Python, mantendo a arquitetura simples. O pipeline divide-se em três camadas funcionais independentes e sequenciais:
+
+\begin{enumerate}
+    \item \textbf{Classificador de Despesas Dedutíveis (ML):} Modelo Random Forest treinado com um conjunto de dados sintéticos derivados das regras do \ac{CIRS} 2025. Para cada transação da plataforma, o classificador determina se esta é dedutível para efeitos de \ac{IRS} e em que categoria (saúde, educação, habitação, encargos gerais familiares). Os dados de treino são gerados programaticamente a partir do mapeamento oficial entre tipos de comerciantes/despesas e os artigos 78.º-A a 78.º-F do \ac{CIRS}, garantindo a fidedignidade das labels.
+
+    \item \textbf{Motor de Regras Fiscais CIRS 2025 (determinístico):} Implementação das regras fiscais portuguesas vigentes em Python puro, sem dependências externas. Inclui a tabela de escalões do \ac{OE} 2025 (Lei n.º~24-D/2024), os limites de dedução por categoria e a dedução das contribuições para a Segurança Social ao rendimento bruto (art.º 25.º \ac{CIRS}). O cálculo segue o fluxo: rendimento bruto $\rightarrow$ deduções ao rendimento (SS) $\rightarrow$ rendimento coletável $\rightarrow$ aplicação dos escalões $\rightarrow$ coleta bruta $\rightarrow$ deduções à coleta $\rightarrow$ imposto final. Os dados da \ac{SS} são introduzidos manualmente pelo utilizador no perfil fiscal (\texttt{FiscalProfile}), uma vez que a \ac{API} da Segurança Social Direta não é de acesso público.
+
+    \item \textbf{Otimizador Fiscal (algoritmo de otimização):} Algoritmo próprio, implementado sem bibliotecas de otimização externas, que gera e compara múltiplos cenários de declaração possíveis: tributação individual vs.\ conjunta (para casais), inclusão ou exclusão de diferentes conjuntos de deduções, e ordenação das despesas pelas categorias com maior impacto fiscal. O algoritmo aplica uma estratégia \textit{greedy} com verificação exaustiva dos cenários de tributação conjunta/separada, devolvendo um ranking de cenários ordenado pelo imposto a pagar e uma lista de alertas sobre deduções não utilizadas ou próximas do limite legal.
+\end{enumerate}
+
+O fluxo de dados do pipeline é o seguinte:
+
+\[
+\text{Transações} \xrightarrow{\text{Classificador ML}} \text{Deduções identificadas} \xrightarrow{\text{Motor CIRS}} \text{IRS estimado} \xrightarrow{\text{Otimizador}} \text{Recomendações}
+\]
+
+Os novos endpoints expostos pelo \texttt{ml-service} e consumidos pelo backend Node.js são: \texttt{POST /fiscal/classify} (classificação de transações), \texttt{POST /fiscal/simulate} (cálculo do \ac{IRS} estimado) e \texttt{POST /fiscal/optimize} (comparação de cenários e recomendações).
+
+
 \section{Conclusões}
 \label{sec:arq-conclusoes}
 
-A arquitetura proposta garante a separação clara de responsabilidades, a escalabilidade do sistema e a facilidade de manutenção. A escolha de uma stack unificada em TypeScript (frontend e backend) reduz a complexidade do desenvolvimento, enquanto a utilização de Python para o módulo de \ac{ML} permite tirar partido do ecossistema científico da linguagem. O design Liquid Glass diferencia a plataforma visualmente dos concorrentes, contribuindo para uma experiência de utilizador premium.
+A arquitetura proposta garante a separação clara de responsabilidades, a escalabilidade do sistema e a facilidade de manutenção. A escolha de uma stack unificada em TypeScript (frontend e backend) reduz a complexidade do desenvolvimento, enquanto a utilização de Python para o módulo de \ac{ML} e de otimização fiscal permite tirar partido do ecossistema científico da linguagem. O pipeline de \ac{IA} fiscal, inteiramente desenvolvido no projeto sem dependências de \ac{LLM}s externos, constitui o contributo técnico mais relevante da arquitetura, combinando aprendizagem automática supervisionada, motor de regras determinístico e algoritmo de otimização num fluxo coeso e auditável. O design Liquid Glass diferencia a plataforma visualmente dos concorrentes, contribuindo para uma experiência de utilizador premium.

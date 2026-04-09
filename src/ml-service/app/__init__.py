@@ -1,1 +1,1 @@
-"""FinTwin ML Service — Categorização automática de transações."""
+"""Gold Lock ML Service — Categorização automática de transações."""

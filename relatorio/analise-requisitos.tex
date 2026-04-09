@@ -10,7 +10,7 @@ Este capítulo apresenta a análise de requisitos do sistema, incluindo os requi
 \section{Requisitos Funcionais}
 \label{sec:req-funcionais}
 
-Os requisitos funcionais estão organizados em sete módulos, correspondentes às principais áreas funcionais do sistema.
+Os requisitos funcionais estão organizados em oito módulos, correspondentes às principais áreas funcionais do sistema.
 
 \subsection{Módulo 1 --- Autenticação e Gestão de Utilizadores}
 
@@ -152,6 +152,29 @@ RF35 & O sistema deve enviar alertas sazonais (prazo IRS, IMI, IUC) & Could & 8 
 \end{tabularx}
 \end{table}
 
+\subsection{Módulo 8 --- IA de Otimização Fiscal}
+
+Este módulo introduz um sistema de \ac{IA} próprio, desenvolvido integralmente no âmbito do projeto, sem dependência de modelos de linguagem externos (\ac{LLM}s). A IA combina um classificador de \ac{ML} supervisionado, um motor de regras determinístico baseado no \ac{CIRS} 2025 e um algoritmo de otimização de cenários fiscais, tendo como objetivo assistir o utilizador na declaração de \ac{IRS} de forma personalizada, rigorosa e auditável.
+
+\begin{table}[H]
+\centering
+\caption{Requisitos funcionais do módulo de IA de otimização fiscal.}
+\label{tab:rf-fiscal-ia}
+\small
+\begin{tabularx}{\textwidth}{l X c c}
+\toprule
+\textbf{ID} & \textbf{Descrição} & \textbf{Prioridade} & \textbf{Sprint} \\
+\midrule
+RF36 & O sistema deve classificar automaticamente as transações da plataforma como dedutíveis ou não dedutíveis para efeitos de \ac{IRS} (saúde, educação, habitação, encargos gerais) & Must & 9 \\
+RF37 & O sistema deve calcular o \ac{IRS} estimado integrando as deduções identificadas nas transações com os dados da Segurança Social e rendimentos introduzidos pelo utilizador & Must & 9 \\
+RF38 & O sistema deve apresentar ao utilizador uma lista detalhada das despesas dedutíveis identificadas nas transações históricas, com valores acumulados por categoria de dedução & Must & 9 \\
+RF39 & O sistema deve comparar cenários fiscais alternativos (tributação individual vs.\ conjunta para casais) e recomendar a opção mais vantajosa com base nos rendimentos declarados & Should & 9 \\
+RF40 & O sistema deve alertar o utilizador quando as deduções acumuladas numa categoria estiverem próximas do limite legal estabelecido no \ac{CIRS} (e.g.\ saúde: 15\%, limite 1000\,€) & Should & 9 \\
+RF41 & O sistema deve estimar o impacto fiscal de despesas futuras planeadas no \ac{IRS} do ano seguinte, com base nos padrões de consumo históricos & Could & 9 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 
 \section{Requisitos Não-Funcionais}
 \label{sec:req-nao-funcionais}
@@ -228,6 +251,8 @@ RNF17 & Backup de dados & Diário, automático \\
 RNF18 & Precisão da categorização automática & $> 80\%$ accuracy \\
 RNF19 & Precisão do simulador \ac{IRS} & 10 cenários validados \\
 RNF20 & Tempo de categorização por transação & $< 200$ms \\
+RNF21 & Precisão do classificador de despesas dedutíveis & $> 85\%$ accuracy \\
+RNF22 & Correção do motor de regras \ac{IRS} validada contra a calculadora oficial da \ac{AT} & 10 cenários validados \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -242,7 +267,7 @@ A Figura~\ref{fig:casos-uso} apresenta o diagrama de casos de uso principal do s
 \begin{figure}[H]
 \centering
 \input{diagramas/casos-uso}
-\caption{Diagrama de casos de uso do sistema FinTwin.}
+\caption{Diagrama de casos de uso do sistema Gold Lock.}
 \label{fig:casos-uso}
 \end{figure}
 
@@ -250,4 +275,4 @@ A Figura~\ref{fig:casos-uso} apresenta o diagrama de casos de uso principal do s
 \section{Conclusões}
 \label{sec:req-conclusoes}
 
-A análise de requisitos resultou na identificação de 35 requisitos funcionais e 20 requisitos não-funcionais, organizados em 7 módulos funcionais. A priorização MoSCoW permite focar o desenvolvimento nos requisitos \textit{Must} durante as primeiras sprints, garantindo a entrega de um \ac{MVP} funcional, enquanto os requisitos \textit{Should} e \textit{Could} são implementados progressivamente conforme a disponibilidade de tempo.
+A análise de requisitos resultou na identificação de 41 requisitos funcionais e 22 requisitos não-funcionais, organizados em 8 módulos funcionais. A priorização MoSCoW permite focar o desenvolvimento nos requisitos \textit{Must} durante as primeiras sprints, garantindo a entrega de um \ac{MVP} funcional, enquanto os requisitos \textit{Should} e \textit{Could} são implementados progressivamente conforme a disponibilidade de tempo. O Módulo 8, dedicado à \ac{IA} de Otimização Fiscal, representa o contributo técnico mais diferenciador do projeto, introduzindo um sistema de \ac{IA} desenvolvido integralmente sem dependência de serviços externos, fundamentado nas regras oficiais do \ac{CIRS} 2025.
