@@ -15,11 +15,29 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     avatar_url TEXT,
     preferences JSONB DEFAULT '{}',
+
+    -- Verificação de email
+    email_verified BOOLEAN NOT NULL DEFAULT false,
+    email_verification_token UUID UNIQUE,
+    email_verification_token_expires TIMESTAMP WITH TIME ZONE,
+
+    -- Recuperação de password (token de uso único, expira em 1h)
+    password_reset_token UUID UNIQUE,
+    password_reset_expires TIMESTAMP WITH TIME ZONE,
+
+    -- Autenticação de dois fatores (TOTP — compatível com Google Authenticator)
+    totp_secret TEXT,       -- secret base32; deve ser cifrado em produção com chave do servidor
+    totp_enabled BOOLEAN NOT NULL DEFAULT false,
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token)
+    WHERE email_verification_token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(password_reset_token)
+    WHERE password_reset_token IS NOT NULL;
 
 -- ══════════════════════════════════════════
 -- Tabela: bank_accounts
@@ -168,9 +186,90 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ══════════════════════════════════════════
+-- Tabela: fiscal_profile
+-- Dados fiscais introduzidos manualmente pelo utilizador.
+-- A API da Segurança Social Direta não é pública — o utilizador
+-- insere os valores do seu recibo de vencimento ou IRS anterior.
+-- ══════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS fiscal_profile (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Rendimento (Categoria A — trabalho dependente)
+    gross_income_annual DECIMAL(15, 2),         -- Rendimento bruto anual (€)
+    social_security_contributions DECIMAL(15, 2), -- Contribuições SS (art.º 25.º CIRS; 11% trabalhador)
+
+    -- Estado civil e dependentes (afetam escalões e deduções)
+    marital_status VARCHAR(20) DEFAULT 'single'  -- 'single' | 'married' | 'divorced' | 'widowed'
+        CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed')),
+    dependents INT DEFAULT 0 CHECK (dependents >= 0),
+    disability_percentage INT DEFAULT 0          -- % de deficiência (≥60% dá benefícios fiscais)
+        CHECK (disability_percentage BETWEEN 0 AND 100),
+
+    -- Retenções na fonte (do recibo de vencimento)
+    withholding_tax DECIMAL(15, 2) DEFAULT 0,   -- Total retido na fonte no ano
+
+    -- Dedução PPR (art.º 21.º EBF — 20% das entregas, limite conforme escalão)
+    ppr_contributions DECIMAL(15, 2) DEFAULT 0,
+
+    -- Ano fiscal ao qual se referem os dados
+    fiscal_year INT NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_fiscal_profile_user ON fiscal_profile(user_id);
+
+-- ══════════════════════════════════════════
+-- Tabela: deduction_alerts
+-- Alertas gerados pelo classificador ML sobre despesas
+-- potencialmente dedutíveis identificadas nas transações.
+-- ══════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS deduction_alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+
+    -- Tipo de dedução identificada pelo classificador ML
+    deduction_type VARCHAR(50) NOT NULL
+        CHECK (deduction_type IN (
+            'saude_dedutivel',       -- art.º 78.º-C: 15%, limite 1.000€
+            'educacao_dedutivel',    -- art.º 78.º-D: 30%, limite 800€
+            'habitacao_dedutivel',   -- art.º 78.º-E: 15%, limite 296€
+            'encargos_gerais_dedutivel', -- art.º 78.º-B: 35%, limite 250€
+            'ppr_dedutivel',         -- art.º 21.º EBF: 20%, limites por escalão
+            'nao_dedutivel'
+        )),
+
+    amount DECIMAL(15, 2) NOT NULL,             -- Montante da transação
+    estimated_deduction DECIMAL(15, 2),          -- Dedução estimada (aplicando % e limites CIRS)
+    ml_confidence DECIMAL(5, 4),                 -- Confiança do modelo (0.0 a 1.0)
+
+    -- Estado do alerta
+    status VARCHAR(20) DEFAULT 'pending'
+        CHECK (status IN ('pending', 'confirmed', 'rejected')),
+    user_confirmed_type VARCHAR(50),             -- Tipo confirmado/corrigido pelo utilizador
+
+    -- Limites legais (para alertar quando próximos do teto)
+    legal_limit DECIMAL(15, 2),                 -- Limite máximo de dedução CIRS para esta categoria
+    cumulative_amount DECIMAL(15, 2) DEFAULT 0, -- Total acumulado nesta categoria no ano fiscal
+    limit_reached BOOLEAN DEFAULT false,         -- true se cumulative_amount >= legal_limit
+
+    fiscal_year INT NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_deduction_alerts_user ON deduction_alerts(user_id);
+CREATE INDEX idx_deduction_alerts_type ON deduction_alerts(user_id, deduction_type, fiscal_year);
+CREATE INDEX idx_deduction_alerts_status ON deduction_alerts(user_id, status)
+    WHERE status = 'pending';
+
 -- Triggers para updated_at
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_bank_accounts_updated_at BEFORE UPDATE ON bank_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_budgets_updated_at BEFORE UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_savings_goals_updated_at BEFORE UPDATE ON savings_goals FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_fiscal_profile_updated_at BEFORE UPDATE ON fiscal_profile FOR EACH ROW EXECUTE FUNCTION update_updated_at();

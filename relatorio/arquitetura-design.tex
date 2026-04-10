@@ -41,7 +41,7 @@ Base de Dados & PostgreSQL & Robusto, relacional, ideal para dados financeiros \
 Cache & Redis & Sessões, rate limiting, cache de dados Open Banking \\
 IA/ML & Python (scikit-learn) & Classificação de transações e otimização fiscal própria, desenvolvida sem dependência de serviços externos \\
 Open Banking & Salt Edge \ac{API} & Cobertura PT, sandbox gratuita, boa documentação \\
-Autenticação & Supabase Auth & \ac{OAuth}2, \ac{2FA}, tier gratuito generoso \\
+Autenticação & JWT (HS256) + bcrypt + Redis & Implementação própria (\textit{self-hosted}), sem dependências externas; bcrypt (cost=12), refresh tokens UUID em Redis, \ac{TOTP} via speakeasy \\
 Containerização & Docker + Docker Compose & Ambiente reproduzível, isolamento de serviços, parity dev/prod \\
 Deploy & Railway ou Render & Deploy simples, tier gratuito para \ac{MVP} \\
 CI/CD & GitHub Actions & Automatização integrada com repositório \\

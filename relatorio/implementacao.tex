@@ -116,39 +116,63 @@ goldlock/
 \section{Módulo de Autenticação}
 \label{sec:impl-auth}
 
-A autenticação foi implementada utilizando o Supabase Auth, que fornece suporte nativo para \ac{OAuth}2, \ac{JWT} e \ac{2FA}. O fluxo de autenticação inclui:
+A autenticação foi implementada de raiz, sem dependência de serviços externos como Supabase Auth ou Auth0. Esta decisão permite demonstrar domínio técnico completo sobre segurança aplicacional e elimina custos de terceiros em produção.
+
+\subsection{Arquitetura de Segurança}
+
+O módulo assenta em quatro pilares:
 
 \begin{enumerate}
-    \item Registo com email e password (com verificação por email)
-    \item Login via Google OAuth2
-    \item Gestão de sessões com \ac{JWT} e refresh tokens
-    \item Autenticação de dois fatores opcional (TOTP)
+    \item \textbf{Hashing de passwords:} bcrypt com custo 12 ($\approx$250\,ms por operação), resistente a ataques de força bruta e \textit{rainbow table}.
+    \item \textbf{Tokens de sessão:} Access token \ac{JWT} (HS256, 15 minutos) com algoritmo explícito para prevenir o ataque \textit{algorithm confusion} (CVE-2022-21449); refresh token UUID aleatório guardado em Redis (7 dias), com rotação a cada utilização.
+    \item \textbf{Proteção contra enumeração de utilizadores:} Mensagens de erro genéricas em login, pedido de recuperação de password e reenvio de verificação — a resposta é sempre idêntica independentemente de o email existir.
+    \item \textbf{Rate limiting e bloqueio de conta:} Contador por email em Redis; 5 tentativas falhadas desencadeiam bloqueio de 15 minutos. O TTL é definido apenas na primeira falha, impedindo que ataques contínuos reiniciem o contador.
 \end{enumerate}
 
-% TODO: Adicionar excertos de código reais quando implementados
+\subsection{Fluxo Completo}
 
-\begin{lstlisting}[caption={Exemplo de configuração do Supabase Auth (simplificado).},label={lst:auth},language=Java]
-// services/auth.ts
-import { createClient } from '@supabase/supabase-js'
+O fluxo de autenticação implementado cobre os seguintes cenários:
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-)
+\begin{enumerate}
+    \item \textbf{Registo:} hash bcrypt $\rightarrow$ inserção na BD $\rightarrow$ email de verificação (token UUID, 24\,h, uso único).
+    \item \textbf{Verificação de email:} token validado e invalidado na BD; login bloqueado até verificação.
+    \item \textbf{Login:} verificação de bloqueio $\rightarrow$ comparação bcrypt $\rightarrow$ limpeza de tentativas $\rightarrow$ verificação TOTP (se ativo) $\rightarrow$ emissão de par access/refresh.
+    \item \textbf{Refresh:} UUID verificado em Redis; sessões invalidadas (e.g., após reset de password) são detetadas; token antigo destruído e novo emitido (\textit{token rotation}).
+    \item \textbf{Reset de password:} token UUID (1\,h, uso único) $\rightarrow$ novo hash bcrypt $\rightarrow$ invalidação de \textbf{todas} as sessões ativas via timestamp em Redis.
+    \item \textbf{2FA/TOTP:} geração de secret (speakeasy) $\rightarrow$ QR code (qrcode) $\rightarrow$ verificação do primeiro código antes de ativar $\rightarrow$ desativação requer confirmação de password.
+\end{enumerate}
 
-export const signUp = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
-  return { data, error }
+\begin{lstlisting}[caption={Geração e verificação de tokens JWT com algoritmo explícito (authService.ts).},label={lst:auth}]
+// Access token — algoritmo HS256 explícito (previne alg:none attack)
+function generateAccessToken(userId: string, email: string): string {
+  return jwt.sign(
+    { sub: userId, email, type: 'access' },
+    process.env.JWT_SECRET!,
+    { expiresIn: '15m', algorithm: 'HS256' }
+  );
 }
 
-export const signInWithGoogle = async () => {
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-  })
-  return { data, error }
+// Refresh token — UUID em Redis, nao JWT (sem possibilidade de forgery)
+async function generateRefreshToken(userId: string): Promise<string> {
+  const token = uuidv4();
+  await redisClient.set(`refresh:${token}`, userId, { EX: 604800 });
+  return token;
+}
+
+// Verificacao no middleware — algoritmo restrito
+const payload = jwt.verify(token, secret, {
+  algorithms: ['HS256']
+}) as JwtPayload;
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Bloqueio de conta por tentativas falhadas (Redis).},label={lst:lockout}]
+async function recordFailedAttempt(email: string): Promise<void> {
+  const key = `login_attempts:${email}`;
+  const attempts = await redisClient.incr(key);
+  // TTL definido apenas na primeira falha -- evita reset do timer
+  if (attempts === 1) {
+    await redisClient.expire(key, 900); // 15 minutos
+  }
 }
 \end{lstlisting}
 

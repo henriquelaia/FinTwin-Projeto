@@ -12,9 +12,15 @@ redisClient.on('connect', () => {
   console.log('✅ Redis conectado com sucesso');
 });
 
-// Conectar ao Redis
+// Redis é obrigatório — lockout, sessões e TOTP dependem dele.
+// Falha no arranque = processo termina (fail-fast).
 (async () => {
-  await redisClient.connect();
+  try {
+    await redisClient.connect();
+  } catch (err) {
+    console.error('❌ Falha crítica ao conectar ao Redis — o servidor não pode arrancar:', err);
+    process.exit(1);
+  }
 })();
 
 export { redisClient };

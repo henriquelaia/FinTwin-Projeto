@@ -3,20 +3,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Pool de conexões PostgreSQL
 export const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,               // máximo de conexões no pool
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
 
-// Testar ligação ao arrancar
+// PostgreSQL é obrigatório — falha no arranque = processo termina (fail-fast).
 db.connect()
   .then(client => {
     console.log('✅ PostgreSQL conectado com sucesso');
     client.release();
   })
   .catch(err => {
-    console.error('❌ Erro ao conectar ao PostgreSQL:', err.message);
+    console.error('❌ Falha crítica ao conectar ao PostgreSQL — o servidor não pode arrancar:', err.message);
+    process.exit(1);
   });

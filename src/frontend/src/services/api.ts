@@ -1,67 +1,166 @@
-import axios from 'axios'
+/**
+ * api.ts — Gold Lock
+ * ==================
+ * Cliente Axios central. Todos os serviços importam daqui.
+ * Interceptor de request injeta Bearer token do authStore.
+ * Interceptor de response tenta refresh automático em 401 antes de redirecionar.
+ */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
+import axios from 'axios';
+import { useAuthStore } from '../store/authStore';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 export const api = axios.create({
   baseURL: API_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+  headers: { 'Content-Type': 'application/json' },
+});
 
-// Interceptor para adicionar token de autenticação
+// ── Request: injeta access token ───────────────────────────────────────────
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('goldlock_token')
+  const token = useAuthStore.getState().accessToken;
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return config
-})
+  return config;
+});
 
-// Interceptor para tratar erros globais
+// ── Response: refresh automático em 401 ───────────────────────────────────
+
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (v: string) => void; reject: (e: unknown) => void }> = [];
+
+function processQueue(error: unknown, token: string | null = null) {
+  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)));
+  failedQueue = [];
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('goldlock_token')
-      window.location.href = '/login'
+  async (error) => {
+    const original = error.config;
+
+    if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
     }
-    return Promise.reject(error)
+
+    if (isRefreshing) {
+      return new Promise<string>((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((token) => {
+        original._retry = true; // previne loop infinito se o token refreshed também der 401
+        original.headers.Authorization = `Bearer ${token}`;
+        return api(original);
+      });
+    }
+
+    original._retry = true;
+    isRefreshing = true;
+
+    const refreshToken = useAuthStore.getState().refreshToken;
+
+    if (!refreshToken) {
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefresh } = data.data;
+
+      useAuthStore.getState().setTokens({ accessToken, refreshToken: newRefresh });
+      processQueue(null, accessToken);
+
+      original.headers.Authorization = `Bearer ${accessToken}`;
+      return api(original);
+    } catch (refreshError) {
+      processQueue(refreshError);
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   }
-)
+);
 
-// ── API Services ──
+// ── Service objects ────────────────────────────────────────────────────────
 
-export const authService = {
-  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
-  signup: (data: { email: string; password: string; name: string }) => api.post('/auth/signup', data),
-  logout: () => api.post('/auth/logout'),
-  me: () => api.get('/auth/me'),
-}
+export const authApi = {
+  register:            (data: { name: string; email: string; password: string }) =>
+    api.post('/auth/register', data),
+  login:               (data: { email: string; password: string; totpCode?: string }) =>
+    api.post('/auth/login', data),
+  logout:              (refreshToken: string) =>
+    api.post('/auth/logout', { refreshToken }),
+  me:                  () => api.get('/auth/me'),
+  verifyEmail:         (token: string) =>
+    api.get('/auth/verify-email', { params: { token } }),
+  resendVerification:  (email: string) =>
+    api.post('/auth/resend-verification', { email }),
+  forgotPassword:      (email: string) =>
+    api.post('/auth/forgot-password', { email }),
+  resetPassword:       (token: string, password: string) =>
+    api.post('/auth/reset-password', { token, password }),
+  updateProfile:       (data: { name?: string; avatarUrl?: string }) =>
+    api.put('/auth/profile', data),
+  setup2fa:            () => api.post('/auth/2fa/setup'),
+  enable2fa:           (code: string) => api.post('/auth/2fa/enable', { code }),
+  disable2fa:          (password: string) => api.post('/auth/2fa/disable', { password }),
+};
 
-export const accountsService = {
-  list: () => api.get('/accounts'),
-  connect: () => api.post('/accounts/connect'),
+export const accountsApi = {
+  list:       () => api.get('/accounts'),
+  connect:    (bankCode: string) => api.post('/accounts/connect', { bankCode }),
+  balance:    (id: string) => api.get(`/accounts/${id}/balance`),
   disconnect: (id: string) => api.delete(`/accounts/${id}`),
-}
+};
 
-export const transactionsService = {
-  list: (params?: Record<string, string>) => api.get('/transactions', { params }),
-  summary: (month?: string) => api.get('/transactions/summary', { params: { month } }),
-  updateCategory: (id: string, categoryId: string) => api.put(`/transactions/${id}/category`, { categoryId }),
-  sync: () => api.post('/transactions/sync'),
-}
+export const transactionsApi = {
+  list:           (params?: Record<string, string | number>) =>
+    api.get('/transactions', { params }),
+  summary:        (month?: string) =>
+    api.get('/transactions/summary', { params: { month } }),
+  updateCategory: (id: string, categoryId: string) =>
+    api.put(`/transactions/${id}/category`, { categoryId }),
+  sync:           () => api.post('/transactions/sync'),
+};
 
-export const budgetsService = {
-  list: () => api.get('/budgets'),
-  create: (data: { name: string; categoryId: string; amountLimit: number }) => api.post('/budgets', data),
-  update: (id: string, data: Record<string, unknown>) => api.put(`/budgets/${id}`, data),
+export const budgetsApi = {
+  list:     () => api.get('/budgets'),
+  create:   (data: Record<string, unknown>) => api.post('/budgets', data),
+  update:   (id: string, data: Record<string, unknown>) => api.put(`/budgets/${id}`, data),
   progress: (id: string) => api.get(`/budgets/${id}/progress`),
-}
+};
 
-export const irsService = {
-  simulate: (data: Record<string, unknown>) => api.post('/irs/simulate', data),
-  brackets: () => api.get('/irs/brackets'),
-  deductions: () => api.get('/irs/deductions'),
-}
+export const goalsApi = {
+  list:    () => api.get('/goals'),
+  create:  (data: Record<string, unknown>) => api.post('/goals', data),
+  update:  (id: string, data: Record<string, unknown>) => api.put(`/goals/${id}`, data),
+  remove:  (id: string) => api.delete(`/goals/${id}`),
+  deposit: (id: string, amount: number) => api.put(`/goals/${id}/deposit`, { amount }),
+};
+
+export const categoriesApi = {
+  list:   () => api.get('/categories'),
+  create: (data: { name: string; namePt: string; icon: string; color: string }) =>
+    api.post('/categories', data),
+};
+
+export const irsApi = {
+  simulate:         (data: Record<string, unknown>) => api.post('/irs/simulate', data),
+  brackets:         () => api.get('/irs/brackets'),
+  deductions:       () => api.get('/irs/deductions'),
+  deductionAlerts:  () => api.get('/irs/deduction-alerts'),
+  confirmAlert:     (id: string, confirmedType: string) =>
+    api.put(`/irs/deduction-alerts/${id}/confirm`, { confirmedType }),
+  optimize:         (data: Record<string, unknown>) => api.post('/irs/optimize', data),
+};
+
+export const fiscalProfileApi = {
+  get:    () => api.get('/fiscal-profile'),
+  upsert: (data: Record<string, unknown>) => api.put('/fiscal-profile', data),
+};
