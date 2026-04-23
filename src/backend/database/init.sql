@@ -39,6 +39,8 @@ CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verificat
 CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(password_reset_token)
     WHERE password_reset_token IS NOT NULL;
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS salt_edge_customer_id VARCHAR(255);
+
 -- ══════════════════════════════════════════
 -- Tabela: bank_accounts
 -- ══════════════════════════════════════════
@@ -59,6 +61,9 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
 );
 
 CREATE INDEX idx_bank_accounts_user ON bank_accounts(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_accounts_salt_edge_account_id
+    ON bank_accounts(salt_edge_account_id)
+    WHERE salt_edge_account_id IS NOT NULL;
 
 -- ══════════════════════════════════════════
 -- Tabela: categories
@@ -115,10 +120,13 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_transactions_user ON transactions(user_id);
-CREATE INDEX idx_transactions_date ON transactions(transaction_date DESC);
-CREATE INDEX idx_transactions_category ON transactions(category_id);
-CREATE INDEX idx_transactions_account ON transactions(bank_account_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(bank_account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_salt_edge_id
+    ON transactions(salt_edge_transaction_id)
+    WHERE salt_edge_transaction_id IS NOT NULL;
 
 -- ══════════════════════════════════════════
 -- Tabela: budgets

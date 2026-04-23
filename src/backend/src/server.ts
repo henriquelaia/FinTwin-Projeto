@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
+interface RawBodyRequest extends express.Request { rawBody?: Buffer; }
+
 import { authRouter } from './routes/auth.js';
 import { accountsRouter } from './routes/accounts.js';
 import { transactionsRouter } from './routes/transactions.js';
@@ -27,7 +29,10 @@ app.use(cors({
   credentials: true,
 }));
 app.use(morgan('dev'));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (_req, _res, buf) => { (_req as RawBodyRequest).rawBody = buf; },
+}));
 app.use(rateLimiter);
 
 // ── Health Check ──
