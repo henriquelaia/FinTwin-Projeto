@@ -3,6 +3,7 @@ import { transactionsApi, categoriesApi } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { MOCK_TRANSACTIONS, monthIncome, monthExpenses, monthSavings, CATEGORIES } from '../data/mock';
 import type { Transaction, TransactionSummary, TransactionListMeta } from '../types/transactions';
+import { toast } from '../store/toastStore';
 
 export interface TransactionFilters {
   account_id?: string;
@@ -108,7 +109,9 @@ export function useUpdateCategory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions', 'summary'] });
+      toast.success('Categoria atualizada');
     },
+    onError: () => toast.error('Erro ao atualizar categoria'),
   });
 }
 
@@ -121,7 +124,9 @@ export function useSyncTransactions() {
         : transactionsApi.sync(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast.success('Transações sincronizadas');
     },
+    onError: () => toast.error('Erro na sincronização'),
   });
 }
 

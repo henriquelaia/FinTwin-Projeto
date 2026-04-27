@@ -5,6 +5,7 @@ import { useBudgets, useCreateBudget, useDeleteBudget } from '../hooks/useBudget
 import { useCategories } from '../hooks/useTransactions';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const eur = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v);
@@ -198,8 +199,9 @@ function CreateBudgetModal({ onClose }: { onClose: () => void }) {
 
 export function BudgetsPage() {
   const { data: budgets = [], isLoading } = useBudgets();
-  const { mutate: deleteBudget } = useDeleteBudget();
+  const { mutate: deleteBudget, isPending: isDeleting } = useDeleteBudget();
   const [showCreate, setShowCreate] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const totalLimit = budgets.reduce((s: number, b: Budget) => s + Number(b.amount_limit), 0);
   const totalSpent = budgets.reduce((s: number, b: Budget) => s + Number(b.spent || 0), 0);
@@ -214,6 +216,14 @@ export function BudgetsPage() {
       <AnimatePresence>
         {showCreate && <CreateBudgetModal onClose={() => setShowCreate(false)} />}
       </AnimatePresence>
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Apagar orçamento"
+        description="Esta ação é permanente e não pode ser desfeita."
+        isLoading={isDeleting}
+        onConfirm={() => { if (deleteId) deleteBudget(deleteId); setDeleteId(null); }}
+        onCancel={() => setDeleteId(null)}
+      />
 
       <div className="p-6 space-y-5 max-w-4xl mx-auto">
         <motion.div {...fadeUp(0)} className="flex items-center justify-between">
@@ -294,7 +304,7 @@ export function BudgetsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {budgets.map((budget: Budget, i: number) => (
               <BudgetCard key={budget.id} budget={budget} delay={0.10 + i * 0.05}
-                onDelete={(id) => deleteBudget(id)} />
+                onDelete={(id) => setDeleteId(id)} />
             ))}
           </div>
         )}

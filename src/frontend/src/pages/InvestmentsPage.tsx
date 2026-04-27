@@ -9,6 +9,7 @@ import {
 import { useInvestments, useCreateInvestment, useDeleteInvestment } from '../hooks/useInvestments';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const EUR_RATE = 0.92;
 
@@ -244,7 +245,8 @@ export function InvestmentsPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: investments = [], isLoading } = useInvestments();
-  const { mutate: deleteInvestment } = useDeleteInvestment();
+  const { mutate: deleteInvestment, isPending: isDeleting } = useDeleteInvestment();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const invList = investments as Investment[];
 
@@ -510,7 +512,7 @@ export function InvestmentsPage() {
 
                         <div className="col-span-1 flex justify-end">
                           <button
-                            onClick={() => deleteInvestment(inv.id)}
+                            onClick={() => setDeleteId(inv.id)}
                             className="opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity p-1 rounded"
                             title="Remover">
                             <X size={12} style={{ color: 'var(--ink-900)' }} />
@@ -531,6 +533,15 @@ export function InvestmentsPage() {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={deleteId !== null}
+        title="Remover investimento"
+        description="Esta ação é permanente e não pode ser desfeita."
+        confirmLabel="Remover"
+        isLoading={isDeleting}
+        onConfirm={() => { if (deleteId) deleteInvestment(deleteId); setDeleteId(null); }}
+        onCancel={() => setDeleteId(null)}
+      />
     </>
   );
 }

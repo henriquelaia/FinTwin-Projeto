@@ -6,6 +6,7 @@ import { pt } from 'date-fns/locale';
 import { useGoals, useCreateGoal, useDeleteGoal, useDepositGoal } from '../hooks/useGoals';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const eur = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v);
@@ -53,10 +54,11 @@ function CircleProgress({ pct, color, size = 76 }: { pct: number; color: string;
 }
 
 function GoalCard({ goal, delay }: { goal: Goal; delay: number }) {
-  const { mutate: del } = useDeleteGoal();
+  const { mutate: del, isPending: isDeleting } = useDeleteGoal();
   const { mutate: deposit, isPending: isDepositing } = useDepositGoal();
   const [depositAmount, setDepositAmount] = useState('');
   const [showDeposit, setShowDeposit] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const target = Number(goal.target_amount);
   const current = Number(goal.current_amount);
@@ -76,6 +78,7 @@ function GoalCard({ goal, delay }: { goal: Goal; delay: number }) {
   }
 
   return (
+    <>
     <motion.div {...fadeUp(delay)} className="rounded-2xl p-5"
       style={{ ...card, ...(isDone ? { borderColor: 'rgba(34,197,94,0.25)' } : {}) }}>
       <div className="flex items-center gap-4">
@@ -91,7 +94,7 @@ function GoalCard({ goal, delay }: { goal: Goal; delay: number }) {
             <p className="font-semibold text-[14px] truncate" style={{ color: 'var(--ink-900)' }}>{goal.name}</p>
             {isDone && <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-green-50 text-green-700 shrink-0">✓ Concluída</span>}
             {isUrgent && <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 shrink-0">⚡ Urgente</span>}
-            <button onClick={() => del(goal.id)} className="ml-auto p-1 rounded-lg opacity-20 hover:opacity-60 transition-opacity">
+            <button onClick={() => setConfirmDelete(true)} className="ml-auto p-1 rounded-lg opacity-20 hover:opacity-60 transition-opacity">
               <X size={11} style={{ color: 'var(--ink-900)' }} />
             </button>
           </div>
@@ -160,6 +163,15 @@ function GoalCard({ goal, delay }: { goal: Goal; delay: number }) {
         </div>
       )}
     </motion.div>
+    <ConfirmDialog
+      open={confirmDelete}
+      title="Apagar meta"
+      description="Esta ação é permanente e não pode ser desfeita."
+      isLoading={isDeleting}
+      onConfirm={() => { del(goal.id); setConfirmDelete(false); }}
+      onCancel={() => setConfirmDelete(false)}
+    />
+    </>
   );
 }
 

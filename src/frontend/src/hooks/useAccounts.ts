@@ -3,6 +3,7 @@ import { accountsApi } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { MOCK_ACCOUNTS } from '../data/mock';
 import type { BankAccount } from '../types/accounts';
+import { toast } from '../store/toastStore';
 
 const DEMO_ACCOUNTS: BankAccount[] = MOCK_ACCOUNTS.map(a => ({
   id: a.id,
@@ -44,7 +45,9 @@ export function useDisconnectBank() {
     mutationFn: (id: string) => accountsApi.disconnect(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('Conta desligada');
     },
+    onError: () => toast.error('Erro ao desligar conta'),
   });
 }
 
@@ -57,6 +60,8 @@ export function useSyncAccount() {
         : accountsApi.balance(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      toast.success('Conta sincronizada');
     },
+    onError: () => toast.error('Erro na sincronização'),
   });
 }

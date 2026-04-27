@@ -140,6 +140,7 @@ export const budgetsApi = {
   list:     () => api.get('/budgets'),
   create:   (data: Record<string, unknown>) => api.post('/budgets', data),
   update:   (id: string, data: Record<string, unknown>) => api.put(`/budgets/${id}`, data),
+  remove:   (id: string) => api.delete(`/budgets/${id}`),
   progress: (id: string) => api.get(`/budgets/${id}/progress`),
 };
 
