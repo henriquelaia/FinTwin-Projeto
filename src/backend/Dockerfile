@@ -1,16 +1,16 @@
-FROM node:20-alpine
-
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Instalar dependências primeiro (cache layer)
 COPY package*.json ./
 RUN npm ci
-
-# Copiar código fonte
 COPY . .
+RUN npm run build
 
-# Porta da API
+FROM node:20-alpine AS production
+WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=builder /app/dist ./dist
+USER appuser
 EXPOSE 4000
-
-# Comando de desenvolvimento com hot reload
-CMD ["npm", "run", "dev"]
+CMD ["node", "dist/server.js"]
