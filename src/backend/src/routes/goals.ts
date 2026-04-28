@@ -6,7 +6,7 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const goalsRouter = Router();
 
-const GoalSchema = z.object({
+const GoalSchemaBase = z.object({
   name:          z.string().min(1).max(255),
   targetAmount:  z.number().positive(),
   currentAmount: z.number().min(0).default(0),
@@ -14,6 +14,11 @@ const GoalSchema = z.object({
   icon:          z.string().optional(),
   color:         z.string().optional(),
 });
+
+const GoalSchema = GoalSchemaBase.refine(
+  data => data.currentAmount <= data.targetAmount,
+  { message: 'O valor atual não pode exceder o objetivo', path: ['currentAmount'] }
+);
 
 goalsRouter.get('/', authenticate, async (req, res, next) => {
   try {
@@ -54,7 +59,7 @@ goalsRouter.post('/', authenticate, async (req, res, next) => {
 
 goalsRouter.put('/:id', authenticate, async (req, res, next) => {
   try {
-    const body = GoalSchema.partial().parse(req.body);
+    const body = GoalSchemaBase.partial().parse(req.body);
     const sets: string[] = [];
     const params: unknown[] = [];
     let i = 1;

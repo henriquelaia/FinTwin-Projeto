@@ -212,63 +212,75 @@ transactionsRouter.post('/sync', authenticate, async (req: Request, res: Respons
     const fromDateStr = fromDate.toISOString().slice(0, 10);
 
     let totalSynced = 0;
+    const client = await db.connect();
 
-    for (const account of accounts) {
-      let remoteTxs;
-      try {
-        remoteTxs = await saltEdge.getTransactions(
-          account.salt_edge_connection_id,
-          account.salt_edge_account_id,
-          fromDateStr,
+    try {
+      await client.query('BEGIN');
+
+      for (const account of accounts) {
+        let remoteTxs;
+        try {
+          remoteTxs = await saltEdge.getTransactions(
+            account.salt_edge_connection_id,
+            account.salt_edge_account_id,
+            fromDateStr,
+          );
+        } catch {
+          continue;
+        }
+
+        if (remoteTxs.length === 0) continue;
+
+        let mlPredictions: Array<{ category: string; confidence: number }> = [];
+        try {
+          const mlRes = await axios.post(
+            `${ML_SERVICE_URL}/categorize`,
+            { transactions: remoteTxs.map(tx => ({ description: tx.description, amount: tx.amount })) },
+            { timeout: 10000 },
+          );
+          mlPredictions = mlRes.data.predictions ?? [];
+        } catch {
+          // ML indisponível — continuar sem categorização
+        }
+
+        const { rows: categoryRows } = await client.query<{ id: string; name: string }>(
+          'SELECT id, name FROM categories',
         );
-      } catch {
-        continue;
+        const categoryByName = Object.fromEntries(categoryRows.map(c => [c.name, c.id]));
+
+        for (let i = 0; i < remoteTxs.length; i++) {
+          const tx = remoteTxs[i];
+          const pred = mlPredictions[i];
+          const categoryId = pred ? (categoryByName[pred.category] ?? null) : null;
+          const mlConfidence = pred?.confidence ?? null;
+
+          await client.query(
+            `INSERT INTO transactions
+               (user_id, bank_account_id, category_id, salt_edge_transaction_id,
+                description, amount, currency, transaction_date,
+                ml_confidence, ml_categorized)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+             ON CONFLICT (salt_edge_transaction_id) DO UPDATE
+               SET amount        = EXCLUDED.amount,
+                   description   = EXCLUDED.description,
+                   ml_confidence = EXCLUDED.ml_confidence,
+                   updated_at    = NOW()`,
+            [
+              userId, account.id, categoryId, tx.id,
+              tx.description, tx.amount, tx.currency_code, tx.made_on,
+              mlConfidence, categoryId !== null,
+            ],
+          );
+          totalSynced++;
+        }
       }
 
-      if (remoteTxs.length === 0) continue;
-
-      let mlPredictions: Array<{ category: string; confidence: number }> = [];
-      try {
-        const mlRes = await axios.post(
-          `${ML_SERVICE_URL}/categorize`,
-          { transactions: remoteTxs.map(tx => ({ description: tx.description, amount: tx.amount })) },
-          { timeout: 10000 },
-        );
-        mlPredictions = mlRes.data.predictions ?? [];
-      } catch {
-        // ML indisponível — continuar sem categorização
-      }
-
-      const { rows: categoryRows } = await db.query<{ id: string; name: string }>(
-        'SELECT id, name FROM categories',
-      );
-      const categoryByName = Object.fromEntries(categoryRows.map(c => [c.name, c.id]));
-
-      for (let i = 0; i < remoteTxs.length; i++) {
-        const tx = remoteTxs[i];
-        const pred = mlPredictions[i];
-        const categoryId = pred ? (categoryByName[pred.category] ?? null) : null;
-        const mlConfidence = pred?.confidence ?? null;
-
-        await db.query(
-          `INSERT INTO transactions
-             (user_id, bank_account_id, category_id, salt_edge_transaction_id,
-              description, amount, currency, transaction_date,
-              ml_confidence, ml_categorized)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-           ON CONFLICT (salt_edge_transaction_id) DO UPDATE
-             SET amount        = EXCLUDED.amount,
-                 description   = EXCLUDED.description,
-                 ml_confidence = EXCLUDED.ml_confidence,
-                 updated_at    = NOW()`,
-          [
-            userId, account.id, categoryId, tx.id,
-            tx.description, tx.amount, tx.currency_code, tx.made_on,
-            mlConfidence, categoryId !== null,
-          ],
-        );
-        totalSynced++;
-      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
 
     res.json({ status: 'success', synced: totalSynced });

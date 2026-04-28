@@ -133,8 +133,9 @@ budgetsRouter.get('/:id/progress', authenticate, async (req, res, next) => {
       `SELECT COALESCE(SUM(ABS(amount)), 0) AS spent
        FROM transactions
        WHERE category_id = $1 AND user_id = $2 AND amount < 0
-         AND transaction_date >= date_trunc('month', CURRENT_DATE)`,
-      [b.category_id, req.user!.id]
+         AND transaction_date >= $3::date
+         AND ($4::date IS NULL OR transaction_date <= $4::date)`,
+      [b.category_id, req.user!.id, b.start_date, b.end_date ?? null]
     );
 
     const spentAmount = Number(spent.rows[0].spent);
