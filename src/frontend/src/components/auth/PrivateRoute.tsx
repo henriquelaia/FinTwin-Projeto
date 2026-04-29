@@ -14,12 +14,11 @@ import { api } from '../../services/api';
 
 export function PrivateRoute() {
   const { accessToken, user, setUser, clearAuth } = useAuthStore();
-  const needsValidation = !!(accessToken && !user && accessToken !== 'demo-token');
+  const needsValidation = !!(accessToken && !user);
   const [checking, setChecking] = useState(needsValidation);
 
   useEffect(() => {
     // Se há token mas não user (e.g., page refresh), validar sessão via API
-    // Token "demo-token" não precisa de validação — é só para modo demo
     if (!needsValidation) return;
 
     api.get('/auth/me')

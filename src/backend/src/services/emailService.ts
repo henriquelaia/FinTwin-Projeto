@@ -1,15 +1,4 @@
-/**
- * EmailService — Gold Lock
- * ========================
- * Envio de emails transacionais via SMTP (nodemailer).
- * Sem dependência de serviços externos pagos — funciona com
- * qualquer servidor SMTP (Gmail, Brevo, Mailtrap para dev, etc.)
- *
- * Variáveis de ambiente obrigatórias:
- *  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, FRONTEND_URL
- */
-
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 // ── Prevenção de HTML injection ────────────────────────────────────────────
 
@@ -22,28 +11,20 @@ function escapeHtml(unsafe: string): string {
     .replace(/'/g, '&#x27;');
 }
 
-// ── Transporter (lazy init para não bloquear o arranque) ──────────────────
+// ── Cliente Resend (lazy init) ─────────────────────────────────────────────
 
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+let _resend: Resend | null = null;
 
-  if (!host || !user || !pass) {
-    throw new Error('SMTP não configurado. Verifica SMTP_HOST, SMTP_USER, SMTP_PASS no .env');
+function getResend(): Resend {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY não configurada no .env');
   }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465, // TLS direto apenas na porta 465; STARTTLS nas restantes
-    auth: { user, pass },
-  });
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
 }
 
 const FROM = () =>
-  `"Gold Lock" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`;
+  process.env.EMAIL_FROM ?? 'GoldLock <noreply@goldlock.pt>';
 
 const FRONTEND_URL = () =>
   process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -86,7 +67,7 @@ function baseEmailHtml(title: string, bodyHtml: string): string {
             <td style="padding:24px 40px;background:#f8f9ff;border-top:1px solid #eef4ff;">
               <p style="margin:0;font-size:11px;color:#777587;text-align:center;">
                 © ${new Date().getFullYear()} Gold Lock · Se não reconheces esta ação,
-                <a href="mailto:${process.env.SMTP_FROM ?? process.env.SMTP_USER}"
+                <a href="mailto:${process.env.EMAIL_FROM ?? 'suporte@goldlock.pt'}"
                    style="color:#493ee5;">contacta o suporte</a>.
               </p>
             </td>
@@ -127,7 +108,7 @@ export async function sendVerificationEmail(
       <a href="${verifyUrl}" style="color:#493ee5;word-break:break-all;">${verifyUrl}</a>
     </p>`;
 
-  await createTransporter().sendMail({
+  await getResend().emails.send({
     from:    FROM(),
     to:      email,
     subject: 'Verifica o teu email — Gold Lock',
@@ -166,7 +147,7 @@ export async function sendPasswordResetEmail(
       <a href="${resetUrl}" style="color:#493ee5;word-break:break-all;">${resetUrl}</a>
     </p>`;
 
-  await createTransporter().sendMail({
+  await getResend().emails.send({
     from:    FROM(),
     to:      email,
     subject: 'Recuperação de password — Gold Lock',

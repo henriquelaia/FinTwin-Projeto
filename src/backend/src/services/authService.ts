@@ -169,15 +169,12 @@ export async function register(
   const verificationToken   = uuidv4();
   const verificationExpires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS);
 
-  // Em desenvolvimento sem SMTP configurado, verificar automaticamente para não bloquear o login
-  const autoVerify = process.env.NODE_ENV === 'development' && !process.env.SMTP_HOST;
-
   const result = await db.query(
     `INSERT INTO users (name, email, password_hash, email_verification_token,
       email_verification_token_expires, email_verified)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id, name, email, email_verified, totp_enabled, created_at`,
-    [name, email, passwordHash, verificationToken, verificationExpires, autoVerify]
+    [name, email, passwordHash, verificationToken, verificationExpires, false]
   );
 
   const user = toPublicUser(result.rows[0]);

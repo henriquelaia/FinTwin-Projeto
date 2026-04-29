@@ -1,26 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountsApi } from '../services/api';
-import { useAuthStore } from '../store/authStore';
-import { MOCK_ACCOUNTS } from '../data/mock';
 import type { BankAccount } from '../types/accounts';
 import { toast } from '../store/toastStore';
-
-const DEMO_ACCOUNTS: BankAccount[] = MOCK_ACCOUNTS.map(a => ({
-  id: a.id,
-  bank_name: a.bankName,
-  account_name: a.accountName,
-  iban: a.iban,
-  balance: String(a.balance),
-  currency: a.currency,
-  status: 'active' as const,
-  last_synced_at: a.lastSynced,
-}));
 
 export function useAccounts() {
   return useQuery<BankAccount[]>({
     queryKey: ['accounts'],
     queryFn: async () => {
-      if (useAuthStore.getState().accessToken === 'demo-token') return DEMO_ACCOUNTS;
       const { data } = await accountsApi.list();
       return data.data as BankAccount[];
     },
@@ -54,10 +40,7 @@ export function useDisconnectBank() {
 export function useSyncAccount() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      useAuthStore.getState().accessToken === 'demo-token'
-        ? Promise.resolve(undefined as never)
-        : accountsApi.balance(id),
+    mutationFn: (id: string) => accountsApi.balance(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       toast.success('Conta sincronizada');
@@ -70,19 +53,11 @@ export function useSyncAllAccounts() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => accountsApi.syncAll(),
-    onMutate: () => {
-      if (useAuthStore.getState().accessToken === 'demo-token') {
-        toast.success('Modo demo: sem bancos reais para sincronizar');
-        throw new Error('demo');
-      }
-    },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       const synced = (res.data as { data?: { synced?: number } })?.data?.synced ?? 0;
       toast.success(synced > 0 ? `${synced} conta(s) sincronizadas` : 'Já tudo atualizado');
     },
-    onError: (err: Error) => {
-      if (err.message !== 'demo') toast.error('Erro na sincronização');
-    },
+    onError: () => toast.error('Erro na sincronização'),
   });
 }
