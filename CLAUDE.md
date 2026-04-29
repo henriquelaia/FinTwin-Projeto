@@ -149,26 +149,30 @@ SELECT * FROM transactions WHERE user_id = $1 ORDER BY transaction_date DESC;
 
 ---
 
-## Estado Actual do Projecto (Abril 2026)
+## Estado Actual do Projecto (Abril 2026 — Sprint 4 concluído)
 
 ### ✅ Completo
 - Autenticação completa (registo, login, 2FA TOTP, reset password, email verification)
-- 13 páginas de frontend (UI completa, com mock data)
+- Auto-verificação de email em dev quando SMTP não configurado (authService.ts)
+- 13 páginas de frontend (UI completa, hooks ligados ao backend)
 - Design system Ink + Gold coeso
-- Docker Compose com 5 serviços
-- Schema PostgreSQL com 8+ tabelas
+- Docker Compose com 5 serviços (user root em dev para npm ci)
+- Schema PostgreSQL com 9+ tabelas + migration files em `database/migrations/`
+- Todos os routers montados em server.ts (0 endpoints 501)
+- Salt Edge API v6 integrado: contas + transações via `POST /api/accounts/sync` e `POST /api/transactions/sync`
+- Botão Sincronizar na AccountsPage (hook `useSyncAllAccounts`)
+- Webhook handler para eventos Salt Edge
+- UNIQUE constraints em `bank_accounts.salt_edge_account_id` e `transactions.salt_edge_transaction_id`
+- GitHub Actions CI: typecheck + lint + build em cada push (`.github/workflows/ci.yml`)
+- Tabela `investments` existe com router completo
 
-### ❌ Por implementar (ver roadmap em docs/superpowers/plans/)
-- 18 endpoints backend retornam 501 (Sprints 4-7)
-- Frontend usa 100% dados mock (src/frontend/src/data/mock.ts)
-- Goals router não existe no backend
-- Fiscal profile router não existe no backend
-- Tabela `investments` não existe
-- Sem testes (0% cobertura)
-- Salt Edge não integrado
-- Preços de mercado não integrados
-- Importação de corretoras não implementada
-- Assistente fiscal IA não implementado
+### ⏳ Por implementar
+- Frontend usa dados mock para utilizadores sem contas reais ligadas (demo mode mantém-se)
+- Preços de mercado reais (Sprint 10)
+- IRS Simulator ligado ao backend (ainda usa cálculo local)
+- Testes (0% cobertura — Sprint 9)
+- Assistente fiscal IA (Sprint 8)
+- Deploy automático (Sprint 10)
 
 ---
 

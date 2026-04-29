@@ -100,6 +100,56 @@ Gold Lock-Projeto/
 └── apresentacao/               # Apresentação (PPTX)
 ```
 
+## Estado de Implementação
+
+### ✅ Concluído
+
+| Sprint | Funcionalidade |
+|--------|---------------|
+| 1–2 | Infraestrutura Docker, PostgreSQL, Redis, ML Service |
+| 2–3 | Autenticação completa (JWT, 2FA TOTP, reset password, email verification) |
+| 3 | 13 páginas frontend com design system Ink + Gold |
+| 4 | Open Banking Salt Edge API v6 — ligação, sync de contas e transações |
+| 4 | Endpoint `POST /api/accounts/sync` + botão Sincronizar na UI |
+| 4 | Webhook handler para eventos Salt Edge |
+| 4 | Migration files em `database/migrations/` |
+
+### ⏳ Roadmap
+
+| Sprint | Funcionalidade |
+|--------|---------------|
+| 5 | Dashboard com dados reais + transações paginadas |
+| 6 | Orçamentos e metas com dados reais |
+| 7 | Simulador IRS ligado ao backend |
+| 8 | Assistente fiscal com IA |
+| 9 | Testes (Vitest + Jest + Playwright) |
+| 10 | Cotações reais de investimentos + deploy |
+
+---
+
+## Pipeline de Desenvolvimento
+
+| Ferramenta | Estado | Notas |
+|-----------|--------|-------|
+| TypeScript strict | ✅ Activo | Frontend e backend |
+| ESLint | ✅ Configurado | `npm run lint` em ambas as camadas |
+| GitHub Actions CI | ✅ Activo | typecheck + lint + build em cada push |
+| Testes unitários | ⏳ Sprint 9 | Vitest (frontend) + Jest (backend) |
+| Testes E2E | ⏳ Sprint 9 | Playwright |
+| Deploy automático | ⏳ Sprint 10 | Railway (backend) + Vercel (frontend) |
+
+### Comandos de qualidade
+
+```bash
+# Backend
+cd src/backend && npm run typecheck && npm run lint
+
+# Frontend
+cd src/frontend && npm run typecheck && npm run lint && npm run build
+```
+
+---
+
 ## Licença
 
 Projeto académico — Universidade da Beira Interior, 2026.
