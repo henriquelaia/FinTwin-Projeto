@@ -158,6 +158,9 @@ OPENAI_API_KEY=
 | GET | `/api/goals` | Listar metas de poupança |
 | POST | `/api/irs/simulate` | Simular IRS 2024 |
 | GET | `/api/investments` | Listar portfólio de investimentos |
+| GET | `/api/market/quote/:ticker` | Cotação atual (Massive p/ ações & ETFs, CoinGecko p/ crypto) |
+| GET | `/api/market/search?q=` | Pesquisa de tickers |
+| GET | `/api/market/history/:ticker?period=30d\|1y` | Histórico de preços |
 | GET | `/api/health` | Health check |
 
 Resposta padrão: `{ "status": "success", "data": ... }` ou `{ "status": "error", "message": ... }`
@@ -188,7 +191,7 @@ FinTwin-Projeto/
 │   │   │   ├── services/           # authService, emailService, marketDataService*
 │   │   │   └── config/             # database (pg Pool), redis
 │   │   ├── database/
-│   │   │   ├── init.sql            # Schema completo (9 tabelas + índices)
+│   │   │   ├── init.sql            # Schema completo (10 tabelas + índices)
 │   │   │   └── migrations/         # Ficheiros de migração incremental
 │   │   └── .env.example            # Template de variáveis do backend
 │   └── ml-service/                 # Python + Flask
@@ -231,10 +234,10 @@ cd src/frontend && npm run typecheck && npm run lint && npm run build
 | 3 | ✅ | UI auth: VerifyEmail, ForgotPassword, 2FA TOTP, Settings |
 | 4 | ✅ | Open Banking: Salt Edge v6, sync, webhooks |
 | 4b | ✅ | CI/CD, ESLint 9, Resend, remoção de demo mode |
-| 5 | 🔜 | Dashboard + Transações com dados reais |
-| 6 | ⏳ | Budgets + Goals ligados ao backend |
+| 8 | ✅ | Investimentos: cotações Massive + CoinGecko, P&L live, gráfico |
+| 5 | ✅ | Dashboard + Transações com dados reais (skeletons, filtros mês/conta, fix categoria) |
+| 6 | 🔜 | Budgets + Goals + Categories ligados ao backend |
 | 7 | ⏳ | IRS Simulator persistente no backend |
-| 8 | ⏳ | Investimentos: portfólio manual + cotações reais |
 | 9 | ⏳ | PDF import de corretoras (Degiro, XTB, Trade Republic) |
 | 10 | ⏳ | Assistente Fiscal IA (OpenAI) |
 | 11 | ⏳ | Testes (Vitest + Jest, ≥70% cobertura) |

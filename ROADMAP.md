@@ -39,37 +39,50 @@ Projeto académico UBI 2025/2026 — Henrique Miguel Silva Laia (Nº 51667)
 - Correção de bugs: webhook bank_name/account_name, PUT investments incompleto
 - Índices de performance adicionados: `idx_categories_parent`, `idx_transactions_user_date`
 
+### Sprint 8 — Investimentos: Portfólio + Cotações Reais ✅
+- Serviço `marketDataService.ts` com **Massive API** (ações/ETFs, Bearer auth) e CoinGecko (crypto)
+- Endpoints `/api/market/quote/:ticker`, `/search`, `/history/:ticker?period=30d|1y`
+- Cache Redis com TTL 15 min (quotes) e 1 h (history)
+- `InvestmentsPage.tsx` com P&L live, gráfico histórico e pesquisa de tickers
+- Hook `useMarketData.ts` (`useMarketQuote`, `useMarketHistory`, `useMarketSearch`)
+- Logo SVG (cadeado dourado) e templates de email com tokens ink+gold
+
+### Sprint 5 — Dashboard + Transações com Dados Reais ✅
+- `DashboardPage.tsx` ligado a `useTransactionSummary`, `useTransactions`, `useAccounts`, `useInvestments`, `useBudgets`, `useGoals` — dados reais
+- Skeletons pulsantes (CSS puro, `animate-pulse`) nos 4 KPIs, gráfico de áreas e lista de transações recentes
+- Empty state: CTA dourado central no card de Saldo Total quando o utilizador não tem contas ligadas → `/accounts`
+- Insights automáticos (over-budget, near-goal, taxa de poupança)
+- `TransactionsPage.tsx` com filtros funcionais: tipo, **categoria (UUID — bug pré-existente corrigido)**, **mês (últimos 12)**, **conta bancária**, pesquisa client-side
+- Reset à página 1 em todas as mudanças de filtro; "Limpar filtros" cobre os 5 estados
+- Exportação CSV das transações filtradas
+- Zero referências a `mock.ts` em código de produção das páginas alteradas
+
 ---
 
 ## Sprints Planeados
 
-### Sprint 5 — Dashboard com Dados Reais 🔜 **(Próximo)**
-**Objetivo:** Substituir todos os dados mock do Dashboard e página de Transações por dados reais do backend.
+### Sprint 6 — Budgets, Goals e Categories 🔜 **(Próximo)**
+**Branch:** `feat/sprint-6-budgets-goals`
 
-**Tarefas:**
-- [ ] `DashboardPage.tsx` — ligar a `useTransactionSummary` e `useAccounts` (dados reais)
-- [ ] `TransactionsPage.tsx` — paginação real, filtros funcionais (conta, categoria, tipo, período)
-- [ ] Gráfico de receitas/despesas com `Recharts` + dados do endpoint `/transactions/summary`
-- [ ] Estado de "sem contas ligadas" → CTA para ligar conta Salt Edge
-- [ ] Loading skeletons em todos os cards do dashboard
-- [ ] `AccountsPage.tsx` — já funcional, rever fluxo de connect/disconnect
+**Objetivo:** Páginas de orçamentos, metas e categorias totalmente funcionais com backend (CRUD + progresso real calculado a partir das transações).
+
+**Tarefas frontend:**
+- [ ] `BudgetsPage.tsx` — listar via `useBudgets`, formulário de criação (nome, categoria, limite mensal), edição inline, eliminar com `ConfirmDialog`
+- [ ] Cada budget mostra barra de progresso (`spent / amount_limit`) com cor por threshold (verde <60%, âmbar 60-80%, vermelho >80%)
+- [ ] `GoalsPage.tsx` — listar via `useGoals`, criar meta (nome, valor alvo, data alvo opcional), botão "Depositar" que chama `goalsApi.deposit`
+- [ ] `CategoriesPage.tsx` — listar categorias com `name_pt` + ícone + cor, formulário de criação de subcategoria (`parent_id`)
+- [ ] Loading skeletons + empty states em todas as páginas (mesmo padrão do Sprint 5)
+
+**Tarefas backend:**
+- [ ] Confirmar `GET /api/budgets/:id/progress` calcula `spent` a partir de `transactions` (soma de valores absolutos < 0 da categoria, no mês corrente)
+- [ ] Adicionar `spent` no response do `GET /api/budgets` (join com transações) para evitar chamadas N+1 no frontend
+- [ ] `categoriesApi.create` já existe — confirmar que aceita `parent_id` opcional
 
 **Critérios de aceitação:**
-- Dashboard mostra dados reais de um utilizador com conta Salt Edge ligada
-- Transações paginadas com filtro por mês funcional
-- Sem referências a `mock.ts` em código de produção
-
----
-
-### Sprint 6 — Budgets, Goals e Categories
-**Objetivo:** Módulos de orçamentos e metas totalmente funcionais com backend.
-
-**Tarefas:**
-- [ ] `BudgetsPage.tsx` — criar/editar/apagar orçamentos, progresso real por categoria
-- [ ] `GoalsPage.tsx` — criar meta, registar depósito, progresso visual
-- [ ] `CategoriesPage.tsx` — listar categorias, criar subcategoria
-- [ ] Endpoint `GET /api/budgets/:id/progress` — calcular consumo real das transações
-- [ ] Notificação quando orçamento ultrapassa 80% / 100%
+- Utilizador cria orçamento de "Alimentação 400€/mês" e a barra mostra consumo real das transações categorizadas
+- Goals: criar meta "Férias 2000€", depositar 100€ → barra vai para 5%
+- Sem `mock.ts` em código de produção das três páginas
+- `typecheck + lint + build` passam em frontend e backend
 
 ---
 
@@ -82,29 +95,6 @@ Projeto académico UBI 2025/2026 — Henrique Miguel Silva Laia (Nº 51667)
 - [ ] `IRSSimulatorPage.tsx` — ligar ao backend, mostrar histórico
 - [ ] Pré-preencher dados do perfil fiscal (`fiscal_profile`) na simulação
 - [ ] Deduction alerts: ligar alertas automáticos às transações reais
-
----
-
-### Sprint 8 — Investimentos: Portfólio Manual + Cotações Reais
-**Objetivo:** Módulo completo de investimentos com P&L real e cotações de mercado.
-
-**Novos endpoints:**
-- `GET /api/market/quote/:ticker` — cotação atual (Polygon.io / CoinGecko)
-- `GET /api/market/search?q=` — pesquisa de tickers
-- `GET /api/market/history/:ticker?period=30d|1y` — histórico de preços
-
-**Novo serviço:** `src/backend/src/services/marketDataService.ts`
-- Polygon.io para ações/ETFs (plano free, 15 min delay)
-- CoinGecko para crypto (free, sem API key)
-- Cache Redis com TTL 15 min para evitar rate limiting
-
-**Tabela nova:** `investment_prices(ticker, price, currency, source, fetched_at)`
-
-**Frontend:**
-- `InvestmentsPage.tsx` — P&L real, cotações ao vivo, gráfico histórico
-- `useMarketData.ts` — React Query com staleTime 15 min
-
-Ver design spec completo em `docs/specs/2026-04-29-investments-module-design.md`.
 
 ---
 
