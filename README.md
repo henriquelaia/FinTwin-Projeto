@@ -1,26 +1,66 @@
 # Gold Lock — Plataforma de Gestão Financeira Pessoal
 
-Plataforma web de gestão financeira pessoal com integração Open Banking (PSD2), categorização automática de transações com Machine Learning e simulação fiscal de IRS, especificamente desenhada para o mercado português.
+[![CI](https://github.com/henrique-laia/goldlock/actions/workflows/ci.yml/badge.svg)](https://github.com/henrique-laia/goldlock/actions/workflows/ci.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
+![Node](https://img.shields.io/badge/Node.js-20-green)
+![React](https://img.shields.io/badge/React-18-61DAFB)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)
 
-**Projeto de Engenharia Informática — Universidade da Beira Interior (2025/2026)**
+Plataforma web de gestão financeira pessoal com integração Open Banking (PSD2/Salt Edge), categorização automática de transações com Machine Learning e simulação fiscal IRS 2024 — desenhada especificamente para o mercado **português**.
 
-Aluno: Henrique Miguel Silva Laia (Nº 51667)
+**Projeto de Engenharia Informática — Universidade da Beira Interior (2025/2026)**  
+Aluno: Henrique Miguel Silva Laia (Nº 51667)  
 Orientador: Professor Doutor Nuno Pombo
+
+---
+
+## Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Browser                             │
+│               React 18 + TypeScript + Vite                  │
+│              (Tailwind · Framer Motion · Zustand)           │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTP / Axios (JWT Bearer)
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│               Backend API  :4000                            │
+│           Node.js 20 + Express 4 + TypeScript               │
+│      (JWT · Redis sessions · Rate limiting · Zod)           │
+└────┬──────────────┬──────────────┬───────────────────────────┘
+     │              │              │
+     ▼              ▼              ▼
+┌─────────┐  ┌──────────┐  ┌──────────────┐
+│ Postgres│  │  Redis 7 │  │  ML Service  │
+│   :5432 │  │  :6379   │  │  Flask :5000 │
+│ (dados) │  │ (sessões)│  │ (categorias) │
+└─────────┘  └──────────┘  └──────────────┘
+     ▲
+     │  Open Banking (PSD2)
+┌─────────────┐
+│  Salt Edge  │
+│    API v6   │
+└─────────────┘
+```
 
 ---
 
 ## Stack Tecnológica
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Frontend | React 18 + TypeScript + TailwindCSS + Framer Motion |
-| Backend | Node.js + Express + TypeScript |
-| ML Service | Python + scikit-learn + Flask |
-| Base de Dados | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Open Banking | Salt Edge API (PSD2) |
-| Autenticação | Custom JWT + Redis (2FA TOTP) |
-| Containerização | Docker + Docker Compose |
+| Camada | Tecnologia | Porta |
+|--------|-----------|-------|
+| Frontend | React 18 + TypeScript + Vite + TailwindCSS + Framer Motion | 3000 |
+| Backend | Node.js 20 + Express 4 + TypeScript | 4000 |
+| ML Service | Python 3.12 + Flask + scikit-learn | 5000 |
+| Base de Dados | PostgreSQL 16 | 5432 |
+| Cache / Sessions | Redis 7 | 6379 |
+| Open Banking | Salt Edge API v6 (PSD2) | — |
+| Email | Resend SDK | — |
+| Autenticação | JWT HS256 (15 min) + Refresh tokens (7 dias, Redis) + 2FA TOTP | — |
+| Containerização | Docker Compose (5 serviços) | — |
+
+---
 
 ## Quick Start
 
@@ -28,7 +68,6 @@ Orientador: Professor Doutor Nuno Pombo
 
 - [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/install/)
 - [Node.js 20+](https://nodejs.org/) (para desenvolvimento local sem Docker)
-- [Python 3.12+](https://python.org/) (para o serviço ML sem Docker)
 
 ### Com Docker (recomendado)
 
@@ -38,8 +77,8 @@ git clone https://github.com/henrique-laia/goldlock.git
 cd goldlock
 
 # 2. Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env com as tuas chaves (Supabase, Salt Edge, etc.)
+cp src/backend/.env.example .env
+# Editar .env com as tuas chaves (ver secção abaixo)
 
 # 3. Iniciar todos os serviços
 docker compose up --build
@@ -50,103 +89,158 @@ docker compose up --build
 # ML Service: http://localhost:5000/health
 ```
 
-### Sem Docker
+> **Nota:** O ficheiro `.env` deve estar na **raiz do repositório** (ao lado de `docker-compose.yml`), não dentro de `src/backend/`.
+
+### Sem Docker (desenvolvimento)
 
 ```bash
-# Frontend
-cd src/frontend && npm install && npm run dev
+# Iniciar PostgreSQL e Redis localmente (ou via Docker individualmente)
 
 # Backend
-cd src/backend && npm install && npm run dev
+cd src/backend
+cp .env.example .env  # configurar variáveis
+npm install && npm run dev
 
-# ML Service
-cd src/ml-service && pip install -r requirements.txt && python -m flask run
+# Frontend (outro terminal)
+cd src/frontend
+npm install && npm run dev
+
+# ML Service (outro terminal)
+cd src/ml-service
+pip install -r requirements.txt && python -m flask run
 ```
+
+---
+
+## Variáveis de Ambiente
+
+Copiar `src/backend/.env.example` para `.env` na raiz e preencher:
+
+```env
+# Obrigatórias
+JWT_SECRET=<string aleatória de 64 caracteres>
+DATABASE_URL=postgresql://goldlock:goldlock_dev@postgres:5432/goldlock_db
+REDIS_URL=redis://redis:6379
+
+# Email (Resend — https://resend.com)
+RESEND_API_KEY=re_xxxxxxxxxxxx
+EMAIL_FROM=noreply@teudominio.com
+
+# Open Banking — Salt Edge (https://www.saltedge.com/)
+SALT_EDGE_APP_ID=
+SALT_EDGE_SECRET=
+
+# Market Data — Massive (https://massive.com)
+MASSIVE_API_KEY=
+
+# Frontend
+VITE_API_URL=http://localhost:4000/api
+
+# Opcional — Assistente fiscal IA (Sprint 10)
+OPENAI_API_KEY=
+```
+
+---
+
+## Principais Endpoints da API
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/api/auth/register` | Criar conta |
+| POST | `/api/auth/login` | Login (+ 2FA opcional) |
+| POST | `/api/auth/refresh` | Renovar access token |
+| GET | `/api/auth/me` | Dados do utilizador autenticado |
+| POST | `/api/accounts/connect` | Ligar conta bancária (Salt Edge) |
+| POST | `/api/accounts/sync` | Sincronizar todas as contas |
+| GET | `/api/transactions` | Listar transações (com filtros e paginação) |
+| GET | `/api/transactions/summary` | Resumo de receitas/despesas por mês |
+| GET | `/api/budgets` | Listar orçamentos |
+| GET | `/api/goals` | Listar metas de poupança |
+| POST | `/api/irs/simulate` | Simular IRS 2024 |
+| GET | `/api/investments` | Listar portfólio de investimentos |
+| GET | `/api/health` | Health check |
+
+Resposta padrão: `{ "status": "success", "data": ... }` ou `{ "status": "error", "message": ... }`
+
+---
 
 ## Estrutura do Projeto
 
 ```
-Gold Lock-Projeto/
-├── docker-compose.yml          # Orquestração dos 5 containers
-├── .env.example                # Template de variáveis de ambiente
+FinTwin-Projeto/
+├── docker-compose.yml              # Orquestração dos 5 containers
+├── .env.example                    # (raiz) template para Docker Compose
+├── .github/workflows/ci.yml        # GitHub Actions CI
 ├── src/
-│   ├── frontend/               # React 18 + TypeScript + Vite
+│   ├── frontend/                   # React 18 + Vite
+│   │   └── src/
+│   │       ├── components/         # UI (GlassCard, GlassButton, etc.), layout, auth
+│   │       ├── pages/              # 13 páginas da aplicação
+│   │       ├── services/api.ts     # Axios central + todos os API clients
+│   │       ├── hooks/              # React Query hooks por módulo
+│   │       ├── store/              # Zustand (authStore, toastStore)
+│   │       └── types/              # Tipos TypeScript partilhados
+│   ├── backend/                    # Node.js + Express
 │   │   ├── src/
-│   │   │   ├── components/     # Componentes React (UI, layout, dashboard)
-│   │   │   ├── pages/          # Páginas da aplicação
-│   │   │   ├── services/       # Chamadas à API
-│   │   │   ├── hooks/          # Custom hooks
-│   │   │   ├── types/          # Tipos TypeScript
-│   │   │   └── styles/         # CSS global + Liquid Glass
-│   │   └── Dockerfile
-│   ├── backend/                # Node.js + Express + TypeScript
-│   │   ├── src/
-│   │   │   ├── routes/         # Endpoints da API REST
-│   │   │   ├── middleware/     # Auth, rate limiting, error handling
-│   │   │   ├── services/      # Lógica de negócio
-│   │   │   ├── models/        # Modelos de dados
-│   │   │   └── config/        # Configuração
+│   │   │   ├── routes/             # auth, accounts, transactions, budgets, goals,
+│   │   │   │                       # categories, irs, fiscal-profile, investments
+│   │   │   ├── middleware/         # authenticate, errorHandler, rateLimiter
+│   │   │   ├── services/           # authService, emailService, marketDataService*
+│   │   │   └── config/             # database (pg Pool), redis
 │   │   ├── database/
-│   │   │   └── init.sql        # Schema PostgreSQL
-│   │   └── Dockerfile
-│   └── ml-service/             # Python + scikit-learn + Flask
-│       ├── app/
-│       │   ├── main.py         # Flask API
-│       │   └── categorizer.py  # Pipeline TF-IDF + Random Forest
-│       ├── models/             # Modelos treinados (.pkl)
-│       └── Dockerfile
-├── relatorio/                  # Relatório LaTeX (UBI template)
-├── poster/                     # Poster A0 (PPTX)
-└── apresentacao/               # Apresentação (PPTX)
+│   │   │   ├── init.sql            # Schema completo (9 tabelas + índices)
+│   │   │   └── migrations/         # Ficheiros de migração incremental
+│   │   └── .env.example            # Template de variáveis do backend
+│   └── ml-service/                 # Python + Flask
+│       └── app/
+│           ├── main.py             # Endpoints /categorize, /retrain
+│           └── categorizer.py      # TF-IDF + Random Forest
+├── docs/
+│   └── specs/                      # Design specs de módulos
+├── relatorio/                      # Relatório LaTeX (UBI template)
+└── poster/                         # Poster A0
 ```
-
-## Estado de Implementação
-
-### ✅ Concluído
-
-| Sprint | Funcionalidade |
-|--------|---------------|
-| 1–2 | Infraestrutura Docker, PostgreSQL, Redis, ML Service |
-| 2–3 | Autenticação completa (JWT, 2FA TOTP, reset password, email verification) |
-| 3 | 13 páginas frontend com design system Ink + Gold |
-| 4 | Open Banking Salt Edge API v6 — ligação, sync de contas e transações |
-| 4 | Endpoint `POST /api/accounts/sync` + botão Sincronizar na UI |
-| 4 | Webhook handler para eventos Salt Edge |
-| 4 | Migration files em `database/migrations/` |
-
-### ⏳ Roadmap
-
-| Sprint | Funcionalidade |
-|--------|---------------|
-| 5 | Dashboard com dados reais + transações paginadas |
-| 6 | Orçamentos e metas com dados reais |
-| 7 | Simulador IRS ligado ao backend |
-| 8 | Assistente fiscal com IA |
-| 9 | Testes (Vitest + Jest + Playwright) |
-| 10 | Cotações reais de investimentos + deploy |
 
 ---
 
-## Pipeline de Desenvolvimento
+## Pipeline de Qualidade
 
-| Ferramenta | Estado | Notas |
-|-----------|--------|-------|
-| TypeScript strict | ✅ Activo | Frontend e backend |
-| ESLint | ✅ Configurado | `npm run lint` em ambas as camadas |
-| GitHub Actions CI | ✅ Activo | typecheck + lint + build em cada push |
-| Testes unitários | ⏳ Sprint 9 | Vitest (frontend) + Jest (backend) |
-| Testes E2E | ⏳ Sprint 9 | Playwright |
-| Deploy automático | ⏳ Sprint 10 | Railway (backend) + Vercel (frontend) |
-
-### Comandos de qualidade
+| Ferramenta | Estado |
+|-----------|--------|
+| TypeScript strict mode | ✅ Frontend + Backend |
+| ESLint 9 (flat config) | ✅ Frontend + Backend |
+| GitHub Actions CI | ✅ typecheck + lint + build em cada push |
+| Testes unitários | ⏳ Sprint 11 — Vitest + Jest |
+| Testes E2E | ⏳ Sprint 11 — Playwright |
+| Deploy automático | ⏳ Sprint 12 |
 
 ```bash
-# Backend
-cd src/backend && npm run typecheck && npm run lint
-
-# Frontend
+# Verificar qualidade localmente
+cd src/backend  && npm run typecheck && npm run lint && npm run build
 cd src/frontend && npm run typecheck && npm run lint && npm run build
 ```
+
+---
+
+## Estado de Implementação
+
+| Sprint | Estado | Funcionalidades |
+|--------|--------|----------------|
+| 1 | ✅ | Docker Compose, PostgreSQL, Redis, ML Service |
+| 2 | ✅ | Auth: JWT, bcrypt, sessions, rate limiting |
+| 3 | ✅ | UI auth: VerifyEmail, ForgotPassword, 2FA TOTP, Settings |
+| 4 | ✅ | Open Banking: Salt Edge v6, sync, webhooks |
+| 4b | ✅ | CI/CD, ESLint 9, Resend, remoção de demo mode |
+| 5 | 🔜 | Dashboard + Transações com dados reais |
+| 6 | ⏳ | Budgets + Goals ligados ao backend |
+| 7 | ⏳ | IRS Simulator persistente no backend |
+| 8 | ⏳ | Investimentos: portfólio manual + cotações reais |
+| 9 | ⏳ | PDF import de corretoras (Degiro, XTB, Trade Republic) |
+| 10 | ⏳ | Assistente Fiscal IA (OpenAI) |
+| 11 | ⏳ | Testes (Vitest + Jest, ≥70% cobertura) |
+| 12 | ⏳ | Deploy + Relatório LaTeX final |
+
+Ver [`ROADMAP.md`](ROADMAP.md) para detalhes completos.
 
 ---
 
