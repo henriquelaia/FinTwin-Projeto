@@ -65,3 +65,24 @@ export function useSyncAccount() {
     onError: () => toast.error('Erro na sincronização'),
   });
 }
+
+export function useSyncAllAccounts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => accountsApi.syncAll(),
+    onMutate: () => {
+      if (useAuthStore.getState().accessToken === 'demo-token') {
+        toast.success('Modo demo: sem bancos reais para sincronizar');
+        throw new Error('demo');
+      }
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      const synced = (res.data as { data?: { synced?: number } })?.data?.synced ?? 0;
+      toast.success(synced > 0 ? `${synced} conta(s) sincronizadas` : 'Já tudo atualizado');
+    },
+    onError: (err: Error) => {
+      if (err.message !== 'demo') toast.error('Erro na sincronização');
+    },
+  });
+}

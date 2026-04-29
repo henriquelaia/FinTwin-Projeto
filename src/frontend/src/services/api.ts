@@ -124,6 +124,7 @@ export const accountsApi = {
   connect:    (returnTo?: string) => api.post('/accounts/connect', returnTo ? { return_to: returnTo } : {}),
   balance:    (id: string) => api.get(`/accounts/${id}/balance`),
   disconnect: (id: string) => api.delete(`/accounts/${id}`),
+  syncAll:    () => api.post('/accounts/sync'),
 };
 
 export const transactionsApi = {

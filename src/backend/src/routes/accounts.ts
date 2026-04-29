@@ -154,6 +154,63 @@ accountsRouter.get('/:id/balance', authenticate, async (req: Request, res: Respo
   }
 });
 
+// ── POST /sync — importar contas de todas as ligações Salt Edge do utilizador ─
+// Útil em dev (sem webhook público) e como fallback de resync manual
+
+accountsRouter.post('/sync', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+
+    const { rows } = await db.query<{ salt_edge_customer_id: string | null }>(
+      'SELECT salt_edge_customer_id FROM users WHERE id = $1',
+      [userId],
+    );
+
+    const customerId = rows[0]?.salt_edge_customer_id;
+    if (!customerId) {
+      res.json({ status: 'success', data: { synced: 0, message: 'Sem ligações Salt Edge.' } });
+      return;
+    }
+
+    const connections = await saltEdge.listConnections(customerId);
+    let synced = 0;
+
+    for (const conn of connections) {
+      if (conn.status !== 'active') continue;
+
+      const remoteAccounts = await saltEdge.getAccounts(conn.id);
+      for (const acc of remoteAccounts) {
+        await db.query(
+          `INSERT INTO bank_accounts
+             (user_id, bank_name, account_name, iban,
+              salt_edge_connection_id, salt_edge_account_id,
+              balance, currency, status, last_synced_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active',NOW())
+           ON CONFLICT (salt_edge_account_id) DO UPDATE
+             SET balance        = EXCLUDED.balance,
+                 last_synced_at = NOW(),
+                 status         = 'active'`,
+          [
+            userId,
+            conn.provider_name,
+            acc.name,
+            (acc.extra?.['iban'] as string | undefined) ?? null,
+            conn.id,
+            acc.id,
+            acc.balance,
+            acc.currency_code,
+          ],
+        );
+        synced++;
+      }
+    }
+
+    res.json({ status: 'success', data: { synced } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── DELETE /:id — desligar conta ──────────────────────────────────────────────
 
 accountsRouter.delete('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {

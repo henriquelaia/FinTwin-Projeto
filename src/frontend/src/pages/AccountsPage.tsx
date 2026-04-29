@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAccounts, useDisconnectBank, useSyncAccount } from '../hooks/useAccounts';
+import { useAccounts, useDisconnectBank, useSyncAccount, useSyncAllAccounts } from '../hooks/useAccounts';
 import { BankCard } from '../components/accounts/BankCard';
 import { ConnectBankModal } from '../components/accounts/ConnectBankModal';
 
@@ -24,6 +24,7 @@ export function AccountsPage() {
   const { data: accounts = [], isLoading } = useAccounts();
   const disconnect = useDisconnectBank();
   const sync = useSyncAccount();
+  const syncAll = useSyncAllAccounts();
 
   // Callback após ligar conta via Salt Edge
   useEffect(() => {
@@ -48,14 +49,25 @@ export function AccountsPage() {
             Gerir ligações via Open Banking (PSD2)
           </p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-80"
-          style={{ background: 'var(--ink-900)' }}
-        >
-          <Plus size={14} />
-          Ligar Conta
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => syncAll.mutate()}
+            disabled={syncAll.isPending}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink-900)' }}
+          >
+            <RefreshCw size={14} className={syncAll.isPending ? 'animate-spin' : ''} />
+            Sincronizar
+          </button>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-80"
+            style={{ background: 'var(--ink-900)' }}
+          >
+            <Plus size={14} />
+            Ligar Conta
+          </button>
+        </div>
       </motion.div>
 
       {/* Hero card saldo total */}

@@ -301,3 +301,25 @@ authRouter.post('/change-password', authenticate, async (req: Request, res: Resp
     next(err);
   }
 });
+
+// ── POST /api/auth/dev/verify-email — bypass só em desenvolvimento ───────────
+// Remove este endpoint antes de ir para produção
+if (process.env.NODE_ENV === 'development') {
+  authRouter.post('/dev/verify-email', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      const { pool } = await import('../config/database.js');
+      const result = await pool.query(
+        'UPDATE users SET email_verified = true WHERE email = $1 RETURNING email',
+        [email]
+      );
+      if (result.rowCount === 0) {
+        res.status(404).json({ status: 'error', message: 'Utilizador não encontrado' });
+        return;
+      }
+      res.json({ status: 'success', message: `Email ${email} verificado (modo dev)` });
+    } catch (err) {
+      next(err);
+    }
+  });
+}
