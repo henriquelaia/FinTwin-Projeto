@@ -1,26 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { goalsApi } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import { toast } from '../store/toastStore';
-import { MOCK_GOALS } from '../data/mock';
 
 export function useGoals() {
   return useQuery({
     queryKey: ['goals'],
-    queryFn: async () => {
-      if (useAuthStore.getState().accessToken === 'demo-token') {
-        return MOCK_GOALS.map(g => ({
-          id: g.id,
-          name: g.name,
-          target_amount: g.targetAmount,
-          current_amount: g.currentAmount,
-          deadline: g.deadline,
-          icon: g.icon,
-          color: g.color,
-        }));
-      }
-      return goalsApi.list().then(r => r.data.data);
-    },
+    queryFn: () => goalsApi.list().then(r => r.data.data),
   });
 }
 

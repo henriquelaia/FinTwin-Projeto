@@ -1,35 +1,33 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Loader2, Zap } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Loader2, CheckCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { useAuthStore } from '../store/authStore'
-import { useNavigate } from 'react-router-dom'
+import { authApi } from '../services/api'
 
 type Mode = 'login' | 'register'
 
 export function LoginPage() {
-  const { login, register, loading, error } = useAuth()
-  const { setUser, setTokens } = useAuthStore()
-  const navigate = useNavigate()
+  const { login, register, loading, error, needsEmailVerification, pendingEmail } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
+  const [name, setName]               = useState('')
+  const [email, setEmail]             = useState('')
+  const [password, setPassword]       = useState('')
+  const [showPass, setShowPass]       = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [verifySent, setVerifySent]   = useState(false)
 
-  const enterDemoMode = () => {
-    setTokens({ accessToken: 'demo-token', refreshToken: 'demo-refresh' })
-    setUser({
-      id: 'demo',
-      name: 'Utilizador Demo',
-      email: 'demo@goldlock.pt',
-      email_verified: true,
-      totp_enabled: false,
-      created_at: new Date().toISOString(),
-    })
-    navigate('/')
+  const handleResendVerification = async () => {
+    setVerifyLoading(true)
+    try {
+      await authApi.resendVerification(pendingEmail)
+      setVerifySent(true)
+    } catch {
+      // silencioso — endpoint responde sempre igual para não revelar emails
+      setVerifySent(true)
+    } finally {
+      setVerifyLoading(false)
+    }
   }
-
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -190,6 +188,34 @@ export function LoginPage() {
               )}
             </AnimatePresence>
 
+            {/* Verificação de email pendente */}
+            <AnimatePresence>
+              {needsEmailVerification && (
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="rounded-xl px-4 py-3 text-sm space-y-2"
+                  style={{ background: 'rgba(201,162,39,0.08)', border: '1px solid rgba(201,162,39,0.25)' }}>
+                  {verifySent ? (
+                    <div className="flex items-center gap-2" style={{ color: 'var(--gold)' }}>
+                      <CheckCircle size={14} />
+                      <span>Email de verificação enviado para {pendingEmail}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ color: 'var(--ink-600)' }}>
+                        Não recebeste o email de verificação?
+                      </p>
+                      <button type="button" onClick={handleResendVerification}
+                        disabled={verifyLoading}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50"
+                        style={{ background: 'var(--gold)', color: 'white' }}>
+                        {verifyLoading ? <Loader2 size={12} className="animate-spin inline" /> : 'Reenviar verificação'}
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Botão */}
             <button type="submit" disabled={loading}
               className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2 flex items-center justify-center gap-2"
@@ -209,28 +235,6 @@ export function LoginPage() {
               8+ caracteres, uma maiúscula e um número.
             </p>
           )}
-
-          {/* Modo demo */}
-          <button
-            type="button"
-            onClick={enterDemoMode}
-            className="w-full mt-3 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
-            style={{
-              background: 'rgba(201,162,39,0.1)',
-              border: '1px solid rgba(201,162,39,0.3)',
-              color: 'var(--gold)',
-            }}
-          >
-            <Zap size={15} />
-            Entrar em modo demo
-          </button>
-
-          {/* Separador */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-            <span className="text-xs" style={{ color: 'var(--ink-300)' }}>ou</span>
-            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-          </div>
 
           {/* Segurança */}
           <div className="flex items-center justify-center gap-4 text-xs" style={{ color: 'var(--ink-300)' }}>

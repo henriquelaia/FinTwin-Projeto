@@ -20,6 +20,10 @@ build/
 *.swp
 *.swo
 
+# Ficheiros locais de contexto IA — nunca commitar
+CLAUDE.md
+NEXT_STEPS.md
+
 # OS
 .DS_Store
 Thumbs.db

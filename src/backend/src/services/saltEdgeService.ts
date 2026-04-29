@@ -169,6 +169,25 @@ export async function deleteConnection(connectionId: string): Promise<void> {
   }
 }
 
+export interface SaltEdgeConnection {
+  id: string;
+  provider_name: string;
+  status: string;
+  customer_id: string;
+}
+
+export async function listConnections(customerId: string): Promise<SaltEdgeConnection[]> {
+  try {
+    const { data } = await axios.get(`${getBaseUrl()}/connections`, {
+      headers: getHeaders(),
+      params: { customer_id: customerId },
+    });
+    return data.data as SaltEdgeConnection[];
+  } catch (err) {
+    handleError(err);
+  }
+}
+
 export async function refreshConnection(connectionId: string): Promise<void> {
   try {
     await axios.put(

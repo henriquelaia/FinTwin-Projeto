@@ -81,9 +81,9 @@ interface Goal {
 export function DashboardPage() {
   const navigate = useNavigate();
 
-  const { data: summary } = useTransactionSummary();
-  const { data: txData } = useTransactions({ limit: 5 });
-  const { data: accounts = [] } = useAccounts();
+  const { data: summary, isLoading: summaryLoading } = useTransactionSummary();
+  const { data: txData, isLoading: txLoading } = useTransactions({ limit: 5 });
+  const { data: accounts = [], isLoading: accountsLoading } = useAccounts();
   const { data: investments = [] } = useInvestments();
   const { data: budgets = [] } = useBudgets();
   const { data: goals = [] } = useGoals();
@@ -190,15 +190,35 @@ export function DashboardPage() {
             </div>
           </div>
           <div>
-            <p className="text-[26px] font-black leading-none text-white tabular-nums">
-              {eur(totalBalance)}
-            </p>
-            <p className="text-xs mt-2 flex items-center gap-1 font-medium" style={{ color: 'rgba(255,255,255,0.40)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-              {accounts.length > 0
-                ? `${accounts.length} conta${accounts.length > 1 ? 's' : ''} ligada${accounts.length > 1 ? 's' : ''}`
-                : 'Sem contas ligadas'}
-            </p>
+            {accountsLoading ? (
+              <>
+                <div className="h-7 w-32 rounded-md animate-pulse" style={{ background: 'rgba(255,255,255,0.10)' }} />
+                <div className="h-3 w-24 mt-3 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              </>
+            ) : accounts.length === 0 ? (
+              <div className="flex flex-col gap-2.5">
+                <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  Liga a tua primeira conta bancária
+                </p>
+                <button
+                  onClick={() => navigate('/accounts')}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-90 self-start"
+                  style={{ background: 'var(--gold)', color: 'var(--ink-900)' }}
+                >
+                  Ligar conta
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-[26px] font-black leading-none text-white tabular-nums">
+                  {eur(totalBalance)}
+                </p>
+                <p className="text-xs mt-2 flex items-center gap-1 font-medium" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                  {`${accounts.length} conta${accounts.length > 1 ? 's' : ''} ligada${accounts.length > 1 ? 's' : ''}`}
+                </p>
+              </>
+            )}
           </div>
         </motion.div>
 
@@ -224,13 +244,22 @@ export function DashboardPage() {
               <span style={{ color: 'var(--ink-300)' }}>{s.icon}</span>
             </div>
             <div>
-              <p className="text-[20px] font-bold leading-none tabular-nums" style={{ color: 'var(--ink-900)' }}>
-                {s.value}
-              </p>
-              <p className={`text-xs mt-2 flex items-center gap-1 font-medium ${s.positive ? 'text-green-600' : 'text-red-500'}`}>
-                {s.positive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
-                {s.sub}
-              </p>
+              {summaryLoading ? (
+                <>
+                  <div className="h-5 w-24 rounded-md animate-pulse" style={{ background: 'rgba(0,0,0,0.06)' }} />
+                  <div className="h-3 w-20 mt-3 rounded animate-pulse" style={{ background: 'rgba(0,0,0,0.04)' }} />
+                </>
+              ) : (
+                <>
+                  <p className="text-[20px] font-bold leading-none tabular-nums" style={{ color: 'var(--ink-900)' }}>
+                    {s.value}
+                  </p>
+                  <p className={`text-xs mt-2 flex items-center gap-1 font-medium ${s.positive ? 'text-green-600' : 'text-red-500'}`}>
+                    {s.positive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                    {s.sub}
+                  </p>
+                </>
+              )}
             </div>
           </motion.div>
         ))}
@@ -258,6 +287,9 @@ export function DashboardPage() {
               </span>
             </div>
           </div>
+          {summaryLoading ? (
+            <div className="h-[220px] rounded-2xl animate-pulse" style={{ background: 'rgba(0,0,0,0.04)' }} />
+          ) : (
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={monthlyTrend} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
               <defs>
@@ -277,6 +309,7 @@ export function DashboardPage() {
               <Area type="monotone" dataKey="expenses" name="Despesas" stroke="#f87171" strokeWidth={2} fill="url(#expGrad)" dot={false} activeDot={{ r: 4, fill: '#f87171' }} />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </motion.div>
 
         <motion.div {...fadeUp(0.28)} className="rounded-2xl p-5" style={card}>
@@ -338,7 +371,13 @@ export function DashboardPage() {
             </button>
           </div>
           <div>
-            {recentTxs.length === 0 ? (
+            {txLoading ? (
+              <div className="px-5 py-4 space-y-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="h-10 rounded-xl animate-pulse" style={{ background: 'rgba(0,0,0,0.04)' }} />
+                ))}
+              </div>
+            ) : recentTxs.length === 0 ? (
               <p className="px-5 py-8 text-center text-sm" style={{ color: 'var(--ink-300)' }}>
                 Sem transações recentes
               </p>

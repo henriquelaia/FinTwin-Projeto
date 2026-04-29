@@ -4,7 +4,10 @@ import { Search, Filter, Download, ChevronDown, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { useTransactions, useTransactionSummary, useCategories } from '../hooks/useTransactions';
+import { useAccounts } from '../hooks/useAccounts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+
+const PT_MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 const eur = (v: number) =>
   new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(v);
@@ -33,24 +36,49 @@ interface Category { id: string; name_pt: string; }
 
 export function TransactionsPage() {
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');   // category_id (UUID)
   const [typeFilter, setTypeFilter] = useState<'' | 'income' | 'expense'>('');
+  const [monthFilter, setMonthFilter] = useState('');         // 'YYYY-MM' ou ''
+  const [accountFilter, setAccountFilter] = useState('');     // bank_account_id (UUID)
   const [page, setPage] = useState(1);
   const PER_PAGE = 20;
 
   const { data: categories = [] } = useCategories();
+  const { data: accounts = [] } = useAccounts();
   const { data: summary } = useTransactionSummary();
+
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = `${PT_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    return { value, label };
+  });
+
+  const dateRange = (() => {
+    if (!monthFilter) return {};
+    const [y, m] = monthFilter.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return {
+      from_date: `${y}-${String(m).padStart(2, '0')}-01`,
+      to_date:   `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`,
+    };
+  })();
+
   const { data, isLoading } = useTransactions({
     page,
     limit: PER_PAGE,
-    ...(categoryFilter && { category: categoryFilter }),
+    ...(categoryFilter && { category_id: categoryFilter }),
     ...(typeFilter && { type: typeFilter }),
+    ...(accountFilter && { account_id: accountFilter }),
+    ...dateRange,
   });
 
   const transactions: Transaction[] = data?.data ?? [];
   const pagination = data?.pagination;
   const hasMore = pagination ? page < pagination.pages : false;
-  const hasFilters = search || categoryFilter || typeFilter;
+  const hasFilters = search || categoryFilter || typeFilter || monthFilter || accountFilter;
 
   const displayed = search
     ? transactions.filter(tx => tx.description.toLowerCase().includes(search.toLowerCase()))
@@ -133,12 +161,37 @@ export function TransactionsPage() {
               color: categoryFilter ? 'var(--gold)' : 'var(--ink-500)' }}>
             <option value="">Todas as categorias</option>
             {categories.map((c: Category) => (
-              <option key={c.id} value={c.name_pt}>{c.name_pt}</option>
+              <option key={c.id} value={c.id}>{c.name_pt}</option>
+            ))}
+          </select>
+
+          <select value={monthFilter} onChange={e => { setMonthFilter(e.target.value); setPage(1); }}
+            className="text-xs px-3 py-1.5 rounded-xl border outline-none cursor-pointer font-medium"
+            style={{ background: monthFilter ? 'var(--gold-subtle)' : 'rgba(0,0,0,0.03)',
+              borderColor: monthFilter ? 'var(--gold-border)' : 'rgba(0,0,0,0.08)',
+              color: monthFilter ? 'var(--gold)' : 'var(--ink-500)' }}>
+            <option value="">Todos os meses</option>
+            {monthOptions.map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+
+          <select value={accountFilter} onChange={e => { setAccountFilter(e.target.value); setPage(1); }}
+            className="text-xs px-3 py-1.5 rounded-xl border outline-none cursor-pointer font-medium"
+            style={{ background: accountFilter ? 'var(--gold-subtle)' : 'rgba(0,0,0,0.03)',
+              borderColor: accountFilter ? 'var(--gold-border)' : 'rgba(0,0,0,0.08)',
+              color: accountFilter ? 'var(--gold)' : 'var(--ink-500)' }}>
+            <option value="">Todas as contas</option>
+            {accounts.map(a => (
+              <option key={a.id} value={a.id}>{a.account_name ?? a.bank_name}</option>
             ))}
           </select>
 
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setCategoryFilter(''); setTypeFilter(''); setPage(1); }}
+            <button onClick={() => {
+              setSearch(''); setCategoryFilter(''); setTypeFilter('');
+              setMonthFilter(''); setAccountFilter(''); setPage(1);
+            }}
               className="text-xs px-3 py-1.5 rounded-xl font-medium text-red-500 hover:bg-red-50 transition-colors">
               Limpar filtros
             </button>

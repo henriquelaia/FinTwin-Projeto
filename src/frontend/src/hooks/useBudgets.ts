@@ -1,25 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { budgetsApi } from '../services/api';
-import { useAuthStore } from '../store/authStore';
 import { toast } from '../store/toastStore';
-import { MOCK_BUDGETS } from '../data/mock';
 
 export function useBudgets() {
   return useQuery({
     queryKey: ['budgets'],
-    queryFn: async () => {
-      if (useAuthStore.getState().accessToken === 'demo-token') {
-        return MOCK_BUDGETS.map(b => ({
-          id: b.id,
-          name: b.name,
-          amount_limit: b.limit,
-          spent: b.spent,
-          period: b.period,
-          alert_threshold: b.alertThreshold,
-        }));
-      }
-      return budgetsApi.list().then(r => r.data.data);
-    },
+    queryFn: () => budgetsApi.list().then(r => r.data.data),
   });
 }
 

@@ -46,11 +46,6 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Modo demo — não tenta refresh, ignora o erro silenciosamente
-    if (useAuthStore.getState().accessToken === 'demo-token') {
-      return Promise.reject(error);
-    }
-
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -124,6 +119,7 @@ export const accountsApi = {
   connect:    (returnTo?: string) => api.post('/accounts/connect', returnTo ? { return_to: returnTo } : {}),
   balance:    (id: string) => api.get(`/accounts/${id}/balance`),
   disconnect: (id: string) => api.delete(`/accounts/${id}`),
+  syncAll:    () => api.post('/accounts/sync'),
 };
 
 export const transactionsApi = {
@@ -178,4 +174,13 @@ export const investmentsApi = {
   create: (data: Record<string, unknown>) => api.post('/investments', data),
   update: (id: string, data: Record<string, unknown>) => api.put(`/investments/${id}`, data),
   remove: (id: string) => api.delete(`/investments/${id}`),
+};
+
+export const marketApi = {
+  quote:   (ticker: string, type?: string) =>
+    api.get(`/market/quote/${encodeURIComponent(ticker)}`, { params: type ? { type } : {} }),
+  search:  (q: string, type?: string) =>
+    api.get('/market/search', { params: { q, ...(type ? { type } : {}) } }),
+  history: (ticker: string, period: '30d' | '1y' = '30d', type?: string) =>
+    api.get(`/market/history/${encodeURIComponent(ticker)}`, { params: { period, ...(type ? { type } : {}) } }),
 };

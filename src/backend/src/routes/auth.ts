@@ -301,3 +301,4 @@ authRouter.post('/change-password', authenticate, async (req: Request, res: Resp
     next(err);
   }
 });
+
