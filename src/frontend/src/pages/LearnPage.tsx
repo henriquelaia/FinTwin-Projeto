@@ -226,10 +226,19 @@ function QuizModal({ quiz, onClose }: QuizModalProps) {
   );
 }
 
+function useLocalStorage<T>(key: string, initial: T): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? initial; }
+    catch { return initial; }
+  });
+  const set = (v: T) => { setValue(v); localStorage.setItem(key, JSON.stringify(v)); };
+  return [value, set];
+}
+
 export function LearnPage() {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('todos');
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
-  const [completedQuizzes, setCompletedQuizzes] = useState<QuizScore[]>([]);
+  const [completedQuizzes, setCompletedQuizzes] = useLocalStorage<QuizScore[]>('gl_completed_quizzes', []);
 
   const filtered = activeCategory === 'todos'
     ? MOCK_QUIZZES
@@ -237,15 +246,14 @@ export function LearnPage() {
 
   const handleQuizComplete = (score?: QuizScore) => {
     if (score) {
-      setCompletedQuizzes(prev => {
-        const existing = prev.findIndex(s => s.quizId === score.quizId);
-        if (existing >= 0) {
-          const updated = [...prev];
-          updated[existing] = score;
-          return updated;
-        }
-        return [...prev, score];
-      });
+      const existing = completedQuizzes.findIndex(s => s.quizId === score.quizId);
+      if (existing >= 0) {
+        const updated = [...completedQuizzes];
+        updated[existing] = score;
+        setCompletedQuizzes(updated);
+      } else {
+        setCompletedQuizzes([...completedQuizzes, score]);
+      }
     }
     setActiveQuiz(null);
   };
@@ -398,6 +406,17 @@ export function LearnPage() {
             );
           })}
         </AnimatePresence>
+        {filtered.length === 0 && (
+          <div className="text-center py-16 col-span-full">
+            <p className="text-4xl mb-3">📚</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--ink-900)' }}>Sem quizzes nesta categoria</p>
+            <button onClick={() => setActiveCategory('todos')}
+              className="mt-3 text-xs font-medium hover:underline"
+              style={{ color: 'var(--gold)' }}>
+              Ver todos os quizzes
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Secção Creators — Em breve */}
@@ -442,18 +461,9 @@ export function LearnPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <input type="email" placeholder="O teu email para ser notificado"
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-colors"
-              style={{ background: 'var(--ink-50)', border: '1px solid var(--border)', color: 'var(--ink-900)' }}
-              onFocus={e => (e.target as HTMLInputElement).style.borderColor = 'var(--gold)'}
-              onBlur={e => (e.target as HTMLInputElement).style.borderColor = 'var(--border)'}
-            />
-            <button className="px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-85"
-              style={{ background: 'var(--ink-900)', whiteSpace: 'nowrap' }}>
-              Notifica-me
-            </button>
-          </div>
+          <p className="mt-4 text-[11px] text-center" style={{ color: 'var(--ink-300)' }}>
+            Notificações de comunidade disponíveis em breve.
+          </p>
         </div>
       </motion.div>
 

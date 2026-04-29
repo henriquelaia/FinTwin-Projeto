@@ -1,21 +1,17 @@
-FROM python:3.12-slim
-
+FROM python:3.12-slim AS builder
 WORKDIR /app
-
-# Instalar dependências do sistema
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
-
-# Instalar dependências Python primeiro (cache layer)
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código fonte
+FROM python:3.12-slim AS production
+WORKDIR /app
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 COPY . .
-
-# Porta da API Flask
+RUN chown -R appuser:appgroup /app
+USER appuser
 EXPOSE 5000
-
-# Comando de desenvolvimento
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app.main:app"]

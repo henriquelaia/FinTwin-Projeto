@@ -30,7 +30,7 @@ interface JwtPayload {
   exp: number;
 }
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -46,7 +46,6 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 
   let payload: JwtPayload;
   try {
-    // Especificar algoritmo explicitamente previne ataques algorithm confusion (alg:none)
     payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as JwtPayload;
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
@@ -59,18 +58,15 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     return next(new AppError('Tipo de token inválido.', 401));
   }
 
-  // Verificar se as sessões foram invalidadas (ex: após reset de password)
-  // Compara o iat do token com o timestamp de invalidação no Redis
-  redisClient.get(`sessions_invalidated:${payload.sub}`).then((invalidatedAt) => {
+  try {
+    const invalidatedAt = await redisClient.get(`sessions_invalidated:${payload.sub}`);
     if (invalidatedAt && payload.iat * 1000 < parseInt(invalidatedAt, 10)) {
       return next(new AppError('Sessão revogada. Faz login novamente.', 401));
     }
-    // Injetar dados do utilizador no request
-    req.user = { id: payload.sub, email: payload.email };
-    next();
-  }).catch(() => {
-    // Se Redis falhar, permite o request — degradação graceful (Redis não deve ser SPOF na leitura)
-    req.user = { id: payload.sub, email: payload.email };
-    next();
-  });
+  } catch {
+    // Redis em baixo — degradação graceful (não é SPOF na leitura)
+  }
+
+  req.user = { id: payload.sub, email: payload.email };
+  next();
 }

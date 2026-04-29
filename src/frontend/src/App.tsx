@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { PrivateRoute } from './components/auth/PrivateRoute';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { ToastContainer } from './components/ui/Toast';
 
 import { LoginPage }         from './pages/LoginPage';
 import { VerifyEmailPage }   from './pages/VerifyEmailPage';
@@ -17,6 +18,7 @@ import { IRSSimulatorPage }  from './pages/IRSSimulatorPage';
 import { SettingsPage }      from './pages/SettingsPage';
 import { InvestmentsPage }   from './pages/InvestmentsPage';
 import { LearnPage }         from './pages/LearnPage';
+import { NotFoundPage }      from './pages/NotFoundPage';
 
 function App() {
   return (
@@ -44,8 +46,9 @@ function App() {
         </Route>
 
         {/* Fallback */}
-        <Route path="*" element={<LoginPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <ToastContainer />
     </ErrorBoundary>
   );
 }

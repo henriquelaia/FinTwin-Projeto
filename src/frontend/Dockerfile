@@ -1,16 +1,15 @@
-FROM node:20-alpine
-
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Instalar dependências primeiro (cache layer)
 COPY package*.json ./
 RUN npm ci
-
-# Copiar código fonte
 COPY . .
+RUN npm run build
 
-# Porta do Vite dev server
+FROM node:20-alpine AS production
+WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN npm install -g serve
+COPY --from=builder /app/dist ./dist
+USER appuser
 EXPOSE 3000
-
-# Comando de desenvolvimento com hot reload
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["serve", "-s", "dist", "-l", "3000"]

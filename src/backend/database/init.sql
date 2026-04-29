@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS users (
     totp_secret TEXT,       -- secret base32; deve ser cifrado em produção com chave do servidor
     totp_enabled BOOLEAN NOT NULL DEFAULT false,
 
+    -- Open Banking (Salt Edge) — ID do customer criado na plataforma Salt Edge
+    salt_edge_customer_id VARCHAR(255),
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -266,10 +269,54 @@ CREATE INDEX idx_deduction_alerts_type ON deduction_alerts(user_id, deduction_ty
 CREATE INDEX idx_deduction_alerts_status ON deduction_alerts(user_id, status)
     WHERE status = 'pending';
 
--- Triggers para updated_at
+-- ══════════════════════════════════════════
+-- Tabela: investments
+-- Portfólio de investimentos do utilizador
+-- ══════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS investments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    ticker VARCHAR(20),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('stock', 'etf', 'bond', 'crypto', 'certificado', 'deposito')),
+    quantity DECIMAL(18, 8) NOT NULL,
+    purchase_price DECIMAL(15, 4) NOT NULL,
+    purchase_date DATE,
+    currency VARCHAR(3) DEFAULT 'EUR',
+    risk_level VARCHAR(20) DEFAULT 'moderate' CHECK (risk_level IN ('guaranteed', 'moderate', 'high')),
+    institution VARCHAR(255),
+    maturity_date DATE,
+    annual_rate DECIMAL(6, 4),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_investments_user ON investments(user_id);
+CREATE INDEX IF NOT EXISTS idx_investments_ticker ON investments(ticker) WHERE ticker IS NOT NULL;
+
+-- Constraints de unicidade para Salt Edge (evitar duplicados em sync)
+ALTER TABLE transactions ADD CONSTRAINT IF NOT EXISTS uq_transactions_salt_edge UNIQUE (salt_edge_transaction_id);
+ALTER TABLE bank_accounts ADD CONSTRAINT IF NOT EXISTS uq_bank_accounts_salt_edge UNIQUE (salt_edge_account_id);
+
+-- Triggers para updated_at (DROP IF EXISTS para ser idempotente)
+DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_bank_accounts_updated_at ON bank_accounts;
 CREATE TRIGGER trg_bank_accounts_updated_at BEFORE UPDATE ON bank_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_transactions_updated_at ON transactions;
 CREATE TRIGGER trg_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_budgets_updated_at ON budgets;
 CREATE TRIGGER trg_budgets_updated_at BEFORE UPDATE ON budgets FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_savings_goals_updated_at ON savings_goals;
 CREATE TRIGGER trg_savings_goals_updated_at BEFORE UPDATE ON savings_goals FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_fiscal_profile_updated_at ON fiscal_profile;
 CREATE TRIGGER trg_fiscal_profile_updated_at BEFORE UPDATE ON fiscal_profile FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS trg_investments_updated_at ON investments;
+CREATE TRIGGER trg_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE FUNCTION update_updated_at();

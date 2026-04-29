@@ -4,16 +4,21 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 
+interface RawBodyRequest extends express.Request { rawBody?: Buffer; }
+
 import { authRouter } from './routes/auth.js';
 import { accountsRouter } from './routes/accounts.js';
 import { transactionsRouter } from './routes/transactions.js';
 import { budgetsRouter } from './routes/budgets.js';
+import { goalsRouter } from './routes/goals.js';
+import { investmentsRouter } from './routes/investments.js';
 import { irsRouter } from './routes/irs.js';
 import { categoriesRouter } from './routes/categories.js';
+import { fiscalProfileRouter } from './routes/fiscalProfile.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
-import './config/database.js';  // inicializar pool PostgreSQL
-import './config/redis.js';     // inicializar cliente Redis
+import './config/database.js';
+import './config/redis.js';
 
 dotenv.config();
 
@@ -27,16 +32,15 @@ app.use(cors({
   credentials: true,
 }));
 app.use(morgan('dev'));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (_req, _res, buf) => { (_req as RawBodyRequest).rawBody = buf; },
+}));
 app.use(rateLimiter);
 
 // ── Health Check ──
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'goldlock-backend',
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ status: 'ok', service: 'goldlock-backend', timestamp: new Date().toISOString() });
 });
 
 // ── Rotas ──
@@ -44,8 +48,11 @@ app.use('/api/auth', authRouter);
 app.use('/api/accounts', accountsRouter);
 app.use('/api/transactions', transactionsRouter);
 app.use('/api/budgets', budgetsRouter);
+app.use('/api/goals', goalsRouter);
+app.use('/api/investments', investmentsRouter);
 app.use('/api/irs', irsRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/fiscal-profile', fiscalProfileRouter);
 
 // ── Error Handler ──
 app.use(errorHandler);

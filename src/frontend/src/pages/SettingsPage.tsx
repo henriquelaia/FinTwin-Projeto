@@ -11,6 +11,7 @@ import { GlassCard } from '../components/ui/GlassCard';
 import { GlassButton } from '../components/ui/GlassButton';
 import { PageHeader } from '../components/ui/PageHeader';
 import { TotpSetupModal } from '../components/auth/TotpSetupModal';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { useAuthStore } from '../store/authStore';
 import { authApi } from '../services/api';
 
@@ -24,11 +25,36 @@ export function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  // Change password
+  const [currentPw, setCurrentPw]     = useState('');
+  const [newPw, setNewPw]             = useState('');
+  const [confirmPw, setConfirmPw]     = useState('');
+  const [changingPw, setChangingPw]   = useState(false);
+  const [pwMsg, setPwMsg]             = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPw !== confirmPw) { setPwMsg({ type: 'err', text: 'As passwords novas não coincidem.' }); return; }
+    if (newPw.length < 8) { setPwMsg({ type: 'err', text: 'A nova password deve ter pelo menos 8 caracteres.' }); return; }
+    setChangingPw(true);
+    setPwMsg(null);
+    try {
+      await authApi.changePassword(currentPw, newPw);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      setPwMsg({ type: 'ok', text: 'Password alterada com sucesso. Por favor faz login novamente.' });
+    } catch {
+      setPwMsg({ type: 'err', text: 'Password atual incorreta ou requisitos não cumpridos.' });
+    } finally {
+      setChangingPw(false);
+    }
+  }
+
   // 2FA
-  const [showTotpModal, setShowTotpModal] = useState(false);
-  const [disablingTotp, setDisablingTotp] = useState(false);
-  const [totpPassword, setTotpPassword]   = useState('');
-  const [totpMsg, setTotpMsg]             = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [showTotpModal, setShowTotpModal]         = useState(false);
+  const [show2faConfirm, setShow2faConfirm]       = useState(false);
+  const [disablingTotp, setDisablingTotp]         = useState(false);
+  const [totpPassword, setTotpPassword]           = useState('');
+  const [totpMsg, setTotpMsg]                     = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -45,8 +71,7 @@ export function SettingsPage() {
     }
   }
 
-  async function disableTotp(e: React.FormEvent) {
-    e.preventDefault();
+  async function disableTotp() {
     setDisablingTotp(true);
     setTotpMsg(null);
     try {
@@ -58,6 +83,7 @@ export function SettingsPage() {
       setTotpMsg({ type: 'err', text: 'Password incorreta.' });
     } finally {
       setDisablingTotp(false);
+      setShow2faConfirm(false);
     }
   }
 
@@ -130,6 +156,17 @@ export function SettingsPage() {
                 className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border border-transparent focus:border-[var(--gold)]/40 transition-colors"
                 style={{ background: 'rgba(0,0,0,0.03)' }}
               />
+              {avatarUrl && (
+                <div className="mt-2 flex items-center gap-3">
+                  <img
+                    src={avatarUrl}
+                    alt="Pré-visualização do avatar"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    className="w-10 h-10 rounded-full object-cover border border-[var(--border)]"
+                  />
+                  <p className="text-xs" style={{ color: 'var(--ink-400)' }}>Pré-visualização</p>
+                </div>
+              )}
             </div>
             <GlassButton type="submit" loading={savingProfile}>Guardar alterações</GlassButton>
           </form>
@@ -139,18 +176,76 @@ export function SettingsPage() {
       {/* Tab: Segurança */}
       {tab === 'security' && (
         <GlassCard>
-          <h3 className="text-base font-bold text-[var(--ink-900)] mb-2">Segurança da conta</h3>
-          <p className="text-sm text-[var(--ink-500)]/60 mb-6">
-            Para alterar a password, utiliza o fluxo de recuperação de password.
-            Receberás um email com um link seguro (válido 1 hora).
+          <h3 className="text-base font-bold text-[var(--ink-900)] mb-1">Alterar Password</h3>
+          <p className="text-sm text-[var(--ink-500)]/60 mb-5">
+            A nova password deve ter pelo menos 8 caracteres, uma maiúscula, um número e um carácter especial.
           </p>
-          <a
-            href="/forgot-password"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--gold)] border border-[var(--gold)]/20 transition-colors hover:bg-[var(--gold)]/5"
-          >
-            <Shield className="w-4 h-4" />
-            Alterar password por email
-          </a>
+          {pwMsg && (
+            <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${pwMsg.type === 'ok' ? 'text-green-700 bg-green-50' : 'text-[#ba1a1a] bg-[#ffdad6]'}`}>
+              {pwMsg.text}
+            </div>
+          )}
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-[var(--ink-500)] mb-1.5 uppercase tracking-wider">Password atual</label>
+              <input
+                type="password"
+                value={currentPw}
+                onChange={e => setCurrentPw(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border border-transparent focus:border-[var(--gold)]/40 transition-colors"
+                style={{ background: 'rgba(0,0,0,0.03)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[var(--ink-500)] mb-1.5 uppercase tracking-wider">Nova password</label>
+              <input
+                type="password"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                required
+                autoComplete="new-password"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border border-transparent focus:border-[var(--gold)]/40 transition-colors"
+                style={{ background: 'rgba(0,0,0,0.03)' }}
+              />
+              {newPw.length > 0 && (() => {
+                const checks = [
+                  { ok: newPw.length >= 8,            label: '8+ caracteres' },
+                  { ok: /[A-Z]/.test(newPw),          label: 'Uma maiúscula' },
+                  { ok: /[0-9]/.test(newPw),          label: 'Um número' },
+                  { ok: /[^A-Za-z0-9]/.test(newPw),   label: 'Um carácter especial' },
+                ];
+                return (
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                    {checks.map(c => (
+                      <span key={c.label} className="flex items-center gap-1.5 text-[11px] font-medium"
+                        style={{ color: c.ok ? '#22c55e' : 'var(--ink-400)' }}>
+                        <span>{c.ok ? '✓' : '○'}</span>
+                        {c.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[var(--ink-500)] mb-1.5 uppercase tracking-wider">Confirmar nova password</label>
+              <input
+                type="password"
+                value={confirmPw}
+                onChange={e => setConfirmPw(e.target.value)}
+                required
+                autoComplete="new-password"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border border-transparent focus:border-[var(--gold)]/40 transition-colors"
+                style={{ background: 'rgba(0,0,0,0.03)' }}
+              />
+            </div>
+            <GlassButton type="submit" loading={changingPw}>
+              <Shield className="w-4 h-4" />
+              Alterar password
+            </GlassButton>
+          </form>
 
           <div className="mt-6 pt-6 border-t border-[var(--gold)]/10">
             <h4 className="text-sm font-semibold text-[var(--ink-900)] mb-1">Email verificado</h4>
@@ -187,20 +282,24 @@ export function SettingsPage() {
               <p className="text-sm text-[var(--ink-500)]/60">
                 Para desativar, confirma a tua password atual.
               </p>
-              <form onSubmit={disableTotp} className="space-y-3">
+              <div className="space-y-3">
                 <input
                   type="password"
                   value={totpPassword}
                   onChange={(e) => setTotpPassword(e.target.value)}
                   placeholder="Password atual"
-                  required
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border border-transparent focus:border-[var(--gold)]/40"
                   style={{ background: 'rgba(0,0,0,0.03)' }}
                 />
-                <GlassButton variant="danger" type="submit" loading={disablingTotp} size="sm">
+                <GlassButton
+                  variant="danger"
+                  type="button"
+                  size="sm"
+                  onClick={() => { if (totpPassword) setShow2faConfirm(true); }}
+                >
                   Desativar 2FA
                 </GlassButton>
-              </form>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -227,6 +326,16 @@ export function SettingsPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={show2faConfirm}
+        title="Desativar autenticação a dois fatores?"
+        description="Ao desativar o 2FA, a tua conta fica protegida apenas pela password. Esta ação reduz a segurança da conta."
+        confirmLabel="Sim, desativar"
+        isLoading={disablingTotp}
+        onConfirm={disableTotp}
+        onCancel={() => setShow2faConfirm(false)}
+      />
     </div>
   );
 }

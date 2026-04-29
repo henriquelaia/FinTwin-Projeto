@@ -46,6 +46,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Modo demo — não tenta refresh, ignora o erro silenciosamente
+    if (useAuthStore.getState().accessToken === 'demo-token') {
+      return Promise.reject(error);
+    }
+
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -110,11 +115,13 @@ export const authApi = {
   setup2fa:            () => api.post('/auth/2fa/setup'),
   enable2fa:           (code: string) => api.post('/auth/2fa/enable', { code }),
   disable2fa:          (password: string) => api.post('/auth/2fa/disable', { password }),
+  changePassword:      (currentPassword: string, newPassword: string) =>
+    api.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 export const accountsApi = {
   list:       () => api.get('/accounts'),
-  connect:    (bankCode: string) => api.post('/accounts/connect', { bankCode }),
+  connect:    (returnTo?: string) => api.post('/accounts/connect', returnTo ? { return_to: returnTo } : {}),
   balance:    (id: string) => api.get(`/accounts/${id}/balance`),
   disconnect: (id: string) => api.delete(`/accounts/${id}`),
 };
@@ -133,6 +140,7 @@ export const budgetsApi = {
   list:     () => api.get('/budgets'),
   create:   (data: Record<string, unknown>) => api.post('/budgets', data),
   update:   (id: string, data: Record<string, unknown>) => api.put(`/budgets/${id}`, data),
+  remove:   (id: string) => api.delete(`/budgets/${id}`),
   progress: (id: string) => api.get(`/budgets/${id}/progress`),
 };
 
@@ -163,4 +171,11 @@ export const irsApi = {
 export const fiscalProfileApi = {
   get:    () => api.get('/fiscal-profile'),
   upsert: (data: Record<string, unknown>) => api.put('/fiscal-profile', data),
+};
+
+export const investmentsApi = {
+  list:   () => api.get('/investments'),
+  create: (data: Record<string, unknown>) => api.post('/investments', data),
+  update: (id: string, data: Record<string, unknown>) => api.put(`/investments/${id}`, data),
+  remove: (id: string) => api.delete(`/investments/${id}`),
 };

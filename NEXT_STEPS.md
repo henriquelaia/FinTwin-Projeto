@@ -143,6 +143,70 @@ Motor determinístico em TypeScript com os 9 escalões OE 2025 (Lei n.º 24-D/20
 
 ---
 
+## Sprint 10 — Carteira de Investimentos
+
+### Objetivo
+Agregar posições de múltiplas corretoras numa única plataforma com preços em tempo real — funcionalidade equivalente ao Getquin, adaptada ao mercado PT.
+
+### Pré-requisitos
+- Sprints 4-9 concluídos (dados de transações bancárias disponíveis)
+- Nenhuma API key adicional necessária (yfinance e CoinGecko são gratuitos)
+
+### Estratégia de importação por corretora
+
+| Corretora | Método | Notas |
+|-----------|--------|-------|
+| XTB | CSV + xAPI (REST) | API documentada, requer credenciais da conta |
+| Trading 212 | CSV + API REST beta | API beta pública disponível |
+| Lightyear | CSV | Sem API pública |
+| Freedom24 | CSV | Sem API pública |
+| TradeRepublic | CSV | Sem API oficial |
+| ByBit EU | CSV + REST API | API bem documentada |
+
+### Ficheiros a criar/editar — ML Service (Python)
+
+| Ficheiro | Ação | Descrição |
+|----------|------|-----------|
+| `src/ml-service/app/price_service.py` | CRIAR | GET /prices/quote (yfinance — ações, ETFs), GET /prices/crypto (CoinGecko — cripto); cache Redis TTL 30s |
+| `src/ml-service/app/main.py` | EDITAR | Registar price_service blueprint |
+
+### Ficheiros a criar/editar — Backend
+
+| Ficheiro | Ação | Descrição |
+|----------|------|-----------|
+| `src/backend/src/services/portfolioService.ts` | CRIAR | Agregar posições, calcular P&L por ativo e total, diversificação |
+| `src/backend/src/services/brokerImportService.ts` | CRIAR | Parsers CSV por corretora; cliente XTB xAPI e Trading212 API |
+| `src/backend/src/routes/investments.ts` | CRIAR | GET /api/investments, POST /api/investments/import (CSV upload), GET /api/investments/prices |
+| `src/backend/src/server.ts` | EDITAR | Registar investments router |
+| `src/backend/database/init.sql` | EDITAR | Adicionar tabelas: investment_portfolios, investment_transactions, investment_positions |
+
+### Ficheiros a criar/editar — Frontend
+
+| Ficheiro | Ação | Descrição |
+|----------|------|-----------|
+| `src/frontend/src/pages/InvestmentsPage.tsx` | EDITAR | Carteira com posições, P&L, gráfico evolução, análise diversificação |
+| `src/frontend/src/components/investments/PortfolioChart.tsx` | CRIAR | Recharts AreaChart evolução valor total da carteira |
+| `src/frontend/src/components/investments/PositionCard.tsx` | CRIAR | Card por ativo: símbolo, quantidade, custo médio, valor atual, P&L |
+| `src/frontend/src/components/investments/ImportModal.tsx` | CRIAR | Upload CSV + seleção de corretora; progress bar de importação |
+| `src/frontend/src/components/investments/DiversificationChart.tsx` | CRIAR | Recharts PieChart distribuição por classe de ativo |
+| `src/frontend/src/hooks/useInvestments.ts` | CRIAR | React Query: posições, preços (polling 30s), histórico |
+
+### Novos endpoints
+
+```
+GET    /api/investments              → carteira valorizada (posições + preços real-time)
+POST   /api/investments/import       → upload CSV { broker, file } → retorna transações importadas
+GET    /api/investments/prices       → preços atuais dos ativos em carteira
+GET    /api/investments/history      → evolução valor total por mês
+```
+
+### Verificação Sprint 10
+- Upload CSV XTB → posições aparecem com P&L correto
+- Preço AAPL atualiza em tempo real (< 30s de latência)
+- Carteira valorizada integrada no dashboard principal
+
+---
+
 ## Como retomar a sessão de trabalho
 
 Ao iniciar nova conversa com Claude:
