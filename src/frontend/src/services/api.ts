@@ -183,6 +183,15 @@ export const investmentsApi = {
   create: (data: Record<string, unknown>) => api.post('/investments', data),
   update: (id: string, data: Record<string, unknown>) => api.put(`/investments/${id}`, data),
   remove: (id: string) => api.delete(`/investments/${id}`),
+  importPdf: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/investments/import-pdf', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  confirmImport: (transactions: Record<string, unknown>[]) =>
+    api.post('/investments/import-pdf/confirm', { transactions }),
 };
 
 export const marketApi = {
