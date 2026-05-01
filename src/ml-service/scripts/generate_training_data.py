@@ -1,9 +1,13 @@
 """
 Gerador de dados de treino para o Assistente Fiscal IA do Gold Lock.
 
-Gera dois datasets sintéticos baseados no CIRS (Lei 82/2023 / OE 2024):
-  - data/deduction_training.csv  (~800 linhas) para DeductionAgent
+Gera dois datasets sintéticos baseados no CIRS (OE 2026 — Lei 73-A/2025):
+  - data/deduction_training.csv  (~820 linhas) para DeductionAgent
   - data/predictor_training.csv  (~400 linhas) para PredictorAgent
+
+Os patterns de merchants portugueses (Farmácia, CUF, ISCTE, PPR, etc.) são
+estáveis entre OE 2024 e OE 2026 — o que mudou foi apenas o cálculo de IRS,
+implementado no `irsCalculator.ts` e `scenario_agent.py`.
 
 Uso:
     cd src/ml-service
@@ -11,7 +15,6 @@ Uso:
 """
 
 import csv
-import os
 import random
 from pathlib import Path
 

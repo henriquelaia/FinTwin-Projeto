@@ -19,6 +19,8 @@ from sklearn.model_selection import cross_val_score
 MODELS_DIR = Path(__file__).parent.parent.parent / "models"
 
 CATEGORIES = ["saude", "educacao", "habitacao", "restauracao", "ppr"]
+# OE 2026 — limite PPR mostrado é o máximo (≤34 anos). Faixas: 35-50→€350, 51+→€300.
+# O orquestrador aplica `getPprLimit(age)` ao montante final dedutível.
 LIMITS = {"saude": 1000.0, "educacao": 800.0, "habitacao": 296.0, "restauracao": 250.0, "ppr": 400.0}
 RATES = {"saude": 0.15, "educacao": 0.30, "habitacao": 0.15, "restauracao": 0.15, "ppr": 0.20}
 

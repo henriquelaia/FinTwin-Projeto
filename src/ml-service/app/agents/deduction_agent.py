@@ -1,8 +1,12 @@
 """
 DeductionAgent — classifica transações como dedutíveis/não-dedutíveis
-segundo o CIRS (Lei 82/2023 / OE 2024).
+segundo o CIRS (OE 2026 — Lei 73-A/2025).
 
 Modelo: RandomForestClassifier com features TF-IDF + amount + month.
+
+Nota: o limite PPR (€400) é o máximo legal (≤34 anos). O limite efectivo
+por idade é aplicado pelo orquestrador via `getPprLimit(age)` — o classificador
+apenas identifica o tipo de dedução, não o montante final dedutível.
 """
 
 import math
