@@ -98,7 +98,7 @@ export function SettingsPage() {
       <PageHeader title="Definições" subtitle="Gere o teu perfil e segurança" />
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgba(73,62,229,0.06)' }}>
+      <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'var(--gold-subtle)' }}>
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

@@ -202,3 +202,9 @@ export const marketApi = {
   history: (ticker: string, period: '30d' | '1y' = '30d', type?: string) =>
     api.get(`/market/history/${encodeURIComponent(ticker)}`, { params: { period, ...(type ? { type } : {}) } }),
 };
+
+export const fiscalAssistantApi = {
+  analyze: () => api.get('/fiscal-assistant/analyze', { timeout: 20000 }),
+  train:   () => api.post('/fiscal-assistant/train', {}),
+  metrics: () => api.get('/fiscal-assistant/metrics'),
+};
