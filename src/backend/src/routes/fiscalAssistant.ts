@@ -16,7 +16,7 @@ fiscalAssistantRouter.get('/analyze', authenticate, async (req, res, next) => {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
-    const [txResult, profileResult] = await Promise.all([
+    const [txResult, profileResult, investmentsResult] = await Promise.all([
       db.query(
         `SELECT t.id, t.description, t.amount, t.transaction_date,
                 c.name_pt AS category_name
@@ -32,11 +32,19 @@ fiscalAssistantRouter.get('/analyze', authenticate, async (req, res, next) => {
         'SELECT * FROM fiscal_profile WHERE user_id = $1',
         [userId],
       ),
+      db.query(
+        `SELECT id, name, ticker, type, quantity, purchase_price,
+                currency, risk_level, institution, annual_rate, maturity_date
+         FROM investments
+         WHERE user_id = $1`,
+        [userId],
+      ),
     ]);
 
     const mlPayload = {
       fiscal_profile: profileResult.rows[0] ?? null,
       transactions: txResult.rows,
+      investments: investmentsResult.rows,
       current_month: currentMonth,
     };
 

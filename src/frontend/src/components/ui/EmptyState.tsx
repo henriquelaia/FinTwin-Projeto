@@ -13,12 +13,16 @@ export function EmptyState({ icon: Icon, title, description, action }: Props) {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div
         className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-        style={{ background: 'rgba(73,62,229,0.08)' }}
+        style={{ background: 'rgba(201,162,39,0.08)' }}
       >
-        <Icon className="w-8 h-8 text-[#493ee5]" />
+        <Icon className="w-8 h-8" style={{ color: 'var(--gold)' }} />
       </div>
-      <h3 className="text-base font-semibold text-[#101c29] mb-1">{title}</h3>
-      <p className="text-sm text-[#464555]/70 max-w-xs mb-6">{description}</p>
+      <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--ink-900)' }}>
+        {title}
+      </h3>
+      <p className="text-sm max-w-xs mb-6" style={{ color: 'var(--ink-500)' }}>
+        {description}
+      </p>
       {action && (
         <GlassButton onClick={action.onClick} size="sm">
           {action.label}

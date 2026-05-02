@@ -33,6 +33,7 @@ class FiscalOrchestrator:
     def analyze(self, payload: dict[str, Any]) -> dict:
         fiscal_profile: dict | None = payload.get("fiscal_profile")
         transactions: list[dict] = payload.get("transactions") or []
+        investments: list[dict] = payload.get("investments") or []
         current_month: int = int(payload.get("current_month") or 6)
 
         # 1. Classificar transações como dedutíveis (alimenta Predictor e Score)
@@ -44,14 +45,17 @@ class FiscalOrchestrator:
         # 3. Prever totais de fim-de-ano por categoria
         predictions = self.predictor_agent.predict(classified_tx, current_month)
 
-        # 4. Otimizar cenários fiscais
-        scenarios = self.scenario_agent.optimize(fiscal_profile)
+        # 4. Otimizar cenários fiscais (passa investments para detectar PPR existente)
+        scenarios = self.scenario_agent.optimize(fiscal_profile, investments)
 
         # 5. Calcular score fiscal
         score = self.score_agent.score(fiscal_profile, deduction_results, predictions)
 
         # 6. Gerar lições e bons hábitos (3 tempos: agir / aprender / manter)
-        lessons = self.lessons_agent.analyze(predictions, deduction_results, current_month)
+        lessons = self.lessons_agent.analyze(
+            predictions, deduction_results, current_month,
+            investments=investments, fiscal_profile=fiscal_profile,
+        )
 
         # this_year_actions = top 3 cenários do ScenarioAgent (excluindo baseline)
         this_year_actions = [s for s in scenarios if s.get("scenario_id") != "baseline"][:3]
@@ -67,6 +71,7 @@ class FiscalOrchestrator:
             "keep_doing": lessons["keep_doing"],
             "meta": {
                 "transactions_analysed": len(transactions),
+                "investments_analysed": len(investments),
                 "deductible_found": sum(1 for d in deduction_results if d.get("is_deductible")),
                 "deduction_agent_trained": self.deduction_agent.is_trained(),
                 "predictor_trained": self.predictor_agent.is_trained(),

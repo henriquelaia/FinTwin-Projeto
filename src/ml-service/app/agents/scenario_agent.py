@@ -132,7 +132,11 @@ def _calculate_irs(
 class ScenarioAgent:
     """Testa até 9 cenários fiscais e ordena por poupança máxima (OE 2026)."""
 
-    def optimize(self, fiscal_profile: dict[str, Any] | None) -> list[dict]:
+    def optimize(
+        self,
+        fiscal_profile: dict[str, Any] | None,
+        investments: list[dict] | None = None,
+    ) -> list[dict]:
         if not fiscal_profile:
             return []
 
@@ -148,6 +152,14 @@ class ScenarioAgent:
         age = fiscal_profile.get("age")
         if age is not None:
             age = int(age)
+
+        # Investimentos não-PPR (stocks, etfs, bonds, crypto) — base para cenário "redirecionar"
+        non_ppr_investment_value = 0.0
+        for inv in (investments or []):
+            if str(inv.get("type")) in {"stock", "etf", "bond", "crypto"}:
+                qty = float(inv.get("quantity") or 0)
+                price = float(inv.get("purchase_price") or 0)
+                non_ppr_investment_value += qty * price
 
         ppr_lim = _ppr_limit(age) if age is not None else DEDUCTION_LIMITS["ppr"]["limit"]
         ppr_max_expense = ppr_lim / DEDUCTION_LIMITS["ppr"]["rate"]
@@ -188,13 +200,37 @@ class ScenarioAgent:
         # ── Cenário 1: PPR máximo para o escalão actual ──────────────────────
         ppr_additional = max(0.0, ppr_max_expense - ppr_contrib)
         if ppr_additional > 50:
+            # Se já contribui mas não chegou ao limite, label diferente
+            if ppr_contrib > 0:
+                ppr_label = f"Aproveitar PPR existente — falta {round(ppr_additional):,}€".replace(",", ".")
+                ppr_actions = [
+                    f"Já tens {round(ppr_contrib):,}€ de PPR este ano".replace(",", "."),
+                    f"Contribuir mais {round(ppr_additional, 0):,.0f}€ até 31/12 para chegar ao limite".replace(",", "."),
+                    f"Benefício fiscal máximo: {ppr_lim:.0f}€ em deduções à coleta (OE 2026)",
+                ]
+            else:
+                ppr_label = f"Contribuir {round(ppr_additional):,}€ para PPR".replace(",", ".")
+                ppr_actions = [
+                    f"Efectuar contribuição PPR de {round(ppr_additional, 0):,.0f}€ até 31/12".replace(",", "."),
+                    f"Benefício fiscal máximo: {ppr_lim:.0f}€ em deduções à coleta (OE 2026)",
+                ]
             ded_ppr = {**current_deductions, "ppr": ppr_max_expense}
+            s = _scenario("ppr_max", ppr_label, ded_ppr, ppr_actions)
+            if s:
+                scenarios.append(s)
+
+        # ── Cenário 1b: Redirecionar parte de investimentos não-PPR ─────────
+        # Só aparece se utilizador tem ≥€500 em ações/ETFs/crypto E não atingiu o limite PPR
+        if non_ppr_investment_value >= 500 and ppr_additional > 50:
+            redirect_amount = min(ppr_additional, non_ppr_investment_value)
+            ded_redirect = {**current_deductions, "ppr": min(ppr_max_expense, ppr_contrib + redirect_amount)}
             s = _scenario(
-                "ppr_max",
-                f"Contribuir {round(ppr_additional):,}€ para PPR".replace(",", "."),
-                ded_ppr,
-                [f"Efectuar contribuição PPR de {round(ppr_additional, 0):,.0f}€ até 31/12".replace(",", "."),
-                 f"Benefício fiscal máximo: {ppr_lim:.0f}€ em deduções à coleta (OE 2026)"],
+                "redirect_to_ppr",
+                f"Redirecionar {round(redirect_amount):,}€ de ações/ETFs para PPR".replace(",", "."),
+                ded_redirect,
+                [f"Tens {round(non_ppr_investment_value):,}€ em ações/ETFs sem benefício fiscal directo".replace(",", "."),
+                 f"Reforça o PPR em {round(redirect_amount):,}€ — ganhas a dedução fiscal".replace(",", "."),
+                 "Estratégia adequada se o horizonte for ≥5 anos (penalização do PPR)"],
             )
             if s:
                 scenarios.append(s)

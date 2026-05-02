@@ -47,6 +47,8 @@ class LessonsAgent:
         predictions: dict[str, dict],
         deduction_results: list[dict],
         current_month: int,
+        investments: list[dict] | None = None,
+        fiscal_profile: dict | None = None,
     ) -> dict:
         next_year_lessons: list[dict] = []
         keep_doing: list[dict] = []
@@ -90,6 +92,31 @@ class LessonsAgent:
                     "description": (
                         f"Gastaste {round(total)}€ em {merchant} este ano, mas estes gastos "
                         "não contam para o IRS. Vê alternativas dedutíveis na mesma categoria."
+                    ),
+                    "type": "non_deductible",
+                })
+
+        # ── Lição — investimentos sem benefício fiscal directo ─────────────
+        # Detecta utilizador com ≥€500 em ações/ETFs/bonds/crypto MAS PPR baixo
+        if investments:
+            non_ppr_value = 0.0
+            for inv in investments:
+                if str(inv.get("type")) in {"stock", "etf", "bond", "crypto"}:
+                    qty = float(inv.get("quantity") or 0)
+                    price = float(inv.get("purchase_price") or 0)
+                    non_ppr_value += qty * price
+            ppr_contrib = float((fiscal_profile or {}).get("ppr_contributions") or 0)
+            if non_ppr_value >= 500 and ppr_contrib < 200:
+                next_year_lessons.append({
+                    "id": "lesson_investments_no_ppr",
+                    "icon": "PiggyBank",
+                    "title": (
+                        f"Tens {round(non_ppr_value):,}€ em ações/ETFs sem benefício fiscal"
+                    ).replace(",", "."),
+                    "description": (
+                        "Estes investimentos têm potencial de valorização mas não dão dedução "
+                        "à coleta de IRS. Considera alocar parte ao PPR (até €2.000/ano se "
+                        "<35 anos) — ganhas até €400 em deduções."
                     ),
                     "type": "non_deductible",
                 })

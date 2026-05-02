@@ -11,9 +11,9 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary: 'text-white font-semibold',
-  secondary: 'text-[#493ee5] font-semibold border border-[#493ee5]/20',
-  danger: 'text-[#ba1a1a] font-semibold border border-[#ba1a1a]/20',
-  ghost: 'text-[#464555] font-medium',
+  secondary: 'font-semibold',
+  danger: 'text-[#b91c1c] font-semibold',
+  ghost: 'font-medium',
 };
 
 const sizes = {
@@ -23,10 +23,24 @@ const sizes = {
 };
 
 const bgStyles: Record<string, React.CSSProperties> = {
-  primary:   { background: 'linear-gradient(135deg, #493ee5 0%, #635bff 100%)', boxShadow: '0 4px 14px rgba(73,62,229,0.35)' },
-  secondary: { background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(12px)' },
-  danger:    { background: 'rgba(255,218,214,0.7)', backdropFilter: 'blur(12px)' },
-  ghost:     { background: 'transparent' },
+  primary:   {
+    background: 'var(--ink-900)',
+    boxShadow: '0 4px 14px rgba(17,17,16,0.18)',
+  },
+  secondary: {
+    background: 'var(--gold-subtle)',
+    color: 'var(--gold)',
+    border: '1px solid var(--gold-border)',
+  },
+  danger:    {
+    background: 'rgba(254,226,226,0.7)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(185,28,28,0.18)',
+  },
+  ghost:     {
+    background: 'transparent',
+    color: 'var(--ink-500)',
+  },
 };
 
 export function GlassButton({
@@ -46,7 +60,7 @@ export function GlassButton({
       className={clsx(
         'inline-flex items-center justify-center gap-2 transition-all duration-150',
         'disabled:opacity-50 disabled:cursor-not-allowed',
-        'active:scale-[0.97]',
+        'active:scale-[0.97] hover:opacity-90',
         variants[variant],
         sizes[size],
         className
