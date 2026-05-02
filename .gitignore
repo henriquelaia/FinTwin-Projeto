@@ -24,6 +24,7 @@ build/
 # Ficheiros locais de contexto IA — nunca commitar
 CLAUDE.md
 NEXT_STEPS.md
+NEXT_SESSION_PROMPT.md
 
 # OS
 .DS_Store
